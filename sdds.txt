@@ -1,0 +1,14 @@
+Jogcím	Kód	Pont	Státusz a te esetedben
+Alap pontok			
+Minimum elvárások teljesítése	{BASE}	24	 (A rendszer specifikáció szerinti mûködése AKS-en).
+Technológia & Architektúra			
+Kétfajta on-premise adatbázis	{OPDB2}	10	 (PostgreSQL és Redis konténerben fut).
+Saját cache használata (Redis)	{CACHE}	5	 (Redis használata a Booking service-ben).
+Aszinkron kommunikáció (RabbitMQ)	{ASYNCCOMM}	5	RabbitMQ és MassTransit használata).
+Hibatûrést növelõ komm. (Polly)	{NOERR}	5	 (Polly Retry használata HTTP hívásoknál).
+Orkesztráció & DevOps			
+Helm chart használata	{HELM}	10	 (Saját és külsõ Helm chartok a deployhoz).
+Saját konténer build ACR-ben	{ACRBUILD}	7	 (az acr build használata).
+Letöltés saját ACR-bõl	{AZACR}	3	(AKS letölti a képet az ACR-bõl admin userrel).
+			
+Összesen	Sum	69	

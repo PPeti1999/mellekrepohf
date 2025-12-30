@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL adatbázis (Catalog és Booking perzisztencia)
+  ticket-db:
+    image: postgres:15-alpine
+    container_name: ticket-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ticketmaster
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+
+  # 2. Redis Cache (Booking készletkezelés és gyorsítótár)
+  ticket-cache:
+    image: redis:alpine
+    container_name: ticket-cache
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 3. RabbitMQ (Üzenetküldés Booking -> Notification)
+  ticket-rabbit:
+    image: rabbitmq:3-management
+    container_name: ticket-rabbit
+    ports:
+      - "5672:5672"   # AMQP port (kód kommunikációhoz)
+      - "15672:15672" # Management UI (böngészőhöz)
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    restart: always
+
+# Adatbázis adatainak megőrzése újraindítás után is
+volumes:
+  postgres-data:
