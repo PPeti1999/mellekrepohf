@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// --- Szolgáltatások regisztrálása ---
+
+builder.Services.AddControllers(); // Csak egyszer kell!
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -12,7 +14,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Redis (Későbbi pontszerzéshez előkészítve)
+// 2. Redis
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
@@ -32,9 +34,15 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
+// 4. HttpClient (A CatalogService hívásához)
+builder.Services.AddHttpClient(); 
+
+// --- Build ---
 var app = builder.Build();
 
-// Automatikus Migráció (Hogy ne kelljen mindig kézzel)
+// --- Middleware és Migráció ---
+
+// Automatikus Migráció
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
