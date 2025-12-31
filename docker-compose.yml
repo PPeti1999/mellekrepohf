@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # --- 1. INFRASTRUKTÚRA (DB, Cache, Message Broker) ---
+  
+  ticket-db:
+    image: postgres:15-alpine
+    container_name: ticket-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ticketmaster
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: always
+
+  ticket-cache:
+    image: redis:alpine
+    container_name: ticket-cache
+    ports:
+      - "6379:6379"
+    restart: always
+
+  ticket-rabbit:
+    image: rabbitmq:3-management
+    container_name: ticket-rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    restart: always
+
+  # --- 2. SAJÁT SZOLGÁLTATÁSOK ---
+
+  catalog-service:
+    build:
+      context: ./src/CatalogService
+      dockerfile: Dockerfile
+    container_name: catalog-service
+    ports:
+      - "5001:8080"  # A géped 5001-es portját kötjük a konténer 8080-asára
+    environment:
+      # FONTOS: Itt a 'localhost' helyett a 'ticket-db' nevet használjuk!
+      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
+      - ConnectionStrings__DefaultConnection=Server=ticket-db;Port=5432;Database=ticketmaster;User Id=postgres;Password=postgres;
+      - RabbitMQ__Host=ticket-rabbit
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      - ticket-db
+
+  booking-service:
+    build:
+      context: ./src/BookingService
+      dockerfile: Dockerfile
+    container_name: booking-service
+    ports:
+      - "5002:8080" # A géped 5002-es portján lesz elérhető
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
+      # Itt felülírjuk az appsettings.json beállításait környezeti változókkal
+      - ConnectionStrings__DefaultConnection=Server=ticket-db;Port=5432;Database=ticketmaster;User Id=postgres;Password=postgres;
+      - ConnectionStrings__Redis=ticket-cache:6379
+      - RabbitMQ__Host=ticket-rabbit
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      - ticket-db
+      - ticket-cache
+      - ticket-rabbit
+
+  notification-worker:
+    build:
+      context: ./src/NotificationWorker
+      dockerfile: Dockerfile
+    container_name: notification-worker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
+      - RabbitMQ__Host=ticket-rabbit
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
+    depends_on:
+      - ticket-rabbit
+
+volumes:
+  postgres-data:

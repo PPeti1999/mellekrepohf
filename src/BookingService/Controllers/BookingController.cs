@@ -26,7 +26,9 @@ namespace BookingService.Controllers
             _cache = cache;
             _publishEndpoint = publishEndpoint;
         }
-
+// TODO: {NOERR} - Később implementálni: 
+// Ha nincs a Redisben adat, kérjük le a CatalogService-től HTTP-n keresztül (Polly-val).
+// Jelenleg: Fake fallback értékkel (100) dolgozunk.
         [HttpPost]
         public async Task<IActionResult> CreateBooking(Booking booking)
         {
@@ -38,11 +40,12 @@ namespace BookingService.Controllers
             await _context.SaveChangesAsync();
 
             // 2. Üzenet küldése RabbitMQ-ra
-            await _publishEndpoint.Publish(new TicketPurchasedEvent
+          await _publishEndpoint.Publish(new TicketPurchasedEvent
             {
                 BookingId = booking.Id,
+                EventId = booking.EventId, // <--- EZT A SORT ILLESD BE
                 CustomerEmail = booking.CustomerEmail,
-                EventName = "Példa Esemény (ID: " + booking.EventId + ")", 
+                EventName = "Példa Esemény", 
                 TicketCount = booking.TicketCount
             });
 
