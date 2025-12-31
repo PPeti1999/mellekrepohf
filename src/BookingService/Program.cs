@@ -1,12 +1,13 @@
 using BookingService.Data;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection; // <--- EZT ADD HOZZÁ BIZTONSÁG KEDVÉÉRT!
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Szolgáltatások regisztrálása ---
 
-builder.Services.AddControllers(); // Csak egyszer kell!
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -34,15 +35,16 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-// 4. HttpClient (A CatalogService hívásához)
-builder.Services.AddHttpClient(); 
+// 4. HttpClient + Polly (Hibatűrés)
+// JAVÍTOTT RÉSZ:
+builder.Services.AddHttpClient("catalog") // Adunk neki egy nevet, bár nem kötelező, de segít
+       .AddStandardResilienceHandler();   // Így már meg kell találnia a 8.10.0 verzióval
 
 // --- Build ---
 var app = builder.Build();
 
 // --- Middleware és Migráció ---
 
-// Automatikus Migráció
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BookingDbContext>();

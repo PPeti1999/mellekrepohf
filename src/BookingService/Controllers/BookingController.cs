@@ -5,7 +5,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json; // Kell a JSON feldolgozáshoz
+using System.Text.Json;
 
 namespace BookingService.Controllers
 {
@@ -16,79 +16,114 @@ namespace BookingService.Controllers
         private readonly BookingDbContext _context;
         private readonly IDistributedCache _cache;
         private readonly IPublishEndpoint _publishEndpoint;
-        private readonly HttpClient _httpClient; // <--- Új mező
-        private readonly IConfiguration _configuration; // Kell a címekhez
-
+        private readonly HttpClient _httpClient;
+        
         public BookingController(
             BookingDbContext context, 
             IDistributedCache cache, 
             IPublishEndpoint publishEndpoint,
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _cache = cache;
             _publishEndpoint = publishEndpoint;
-            _httpClient = httpClientFactory.CreateClient(); // Kliens létrehozása
-            _configuration = configuration;
+            // A Program.cs-ben regisztrált "catalog" nevű klienst vagy az alapértelmezettet használjuk
+            _httpClient = httpClientFactory.CreateClient("catalog"); 
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateBooking(Booking booking)
         {
-            // 0. Esemény adatainak lekérése a CatalogService-től
+            string cacheKey = $"event:{booking.EventId}";
+            int currentStock = 0;
             string eventName = "Ismeretlen Esemény";
-            
-            try 
-            {
-                // Dockerben a service neve: http://catalog-service:8080
-                // Lokálisan (fejlesztéskor): http://localhost:5001 (ezt configból kéne, de most egyszerűsítünk)
-                string catalogUrl = "http://catalog-service:8080/api/Events/" + booking.EventId;
-                
-                // Ha nem Dockerben vagyunk, akkor localhost (ez csak a biztonság kedvéért)
-                // if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true") 
-                //    catalogUrl = "http://localhost:5001/api/Events/" + booking.EventId;
+            bool stockFound = false;
 
-                var response = await _httpClient.GetAsync(catalogUrl);
-                
-                if (response.IsSuccessStatusCode)
+            // --- 1. PRÓBÁLKOZÁS REDISBŐL ---
+            var cachedStockString = await _cache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cachedStockString) && int.TryParse(cachedStockString, out currentStock))
+            {
+                stockFound = true;
+            }
+            else
+            {
+                // --- 2. FALLBACK: HA NINCS REDISBEN, LEKÉRJÜK A CATALOGTÓL (HTTP) ---
+                try 
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    // Feltételezzük, hogy a CatalogService egy JSON-t ad vissza, amiben van "name" mező
-                    using var doc = JsonDocument.Parse(content);
-                    if (doc.RootElement.TryGetProperty("name", out var nameElement))
+                    // Dockerben: http://catalog-service:8080/api/Events/{id}
+                    string catalogUrl = $"http://catalog-service:8080/api/Events/{booking.EventId}";
+                    
+                    var response = await _httpClient.GetAsync(catalogUrl);
+                    if (response.IsSuccessStatusCode)
                     {
-                        eventName = nameElement.GetString() ?? eventName;
+                        var content = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(content);
+                        
+                        // Készlet kinyerése
+                        if (doc.RootElement.TryGetProperty("availableTickets", out var ticketsElement))
+                        {
+                            currentStock = ticketsElement.GetInt32();
+                            stockFound = true;
+                            
+                            // Ha már lekértük, mentsük el a Redisbe a jövőre nézve!
+                            await _cache.SetStringAsync(cacheKey, currentStock.ToString());
+                        }
+
+                        // Név kinyerése (ha már itt vagyunk)
+                        if (doc.RootElement.TryGetProperty("name", out var nameElement))
+                        {
+                            eventName = nameElement.GetString() ?? eventName;
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Ha nem sikerül elérni a Catalogot, nem állunk meg, csak logolunk (vagy ignorálunk)
-                Console.WriteLine($"Hiba az esemény lekérdezésekor: {ex.Message}");
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"HIBA: Nem sikerült elérni a Catalogot: {ex.Message}");
+                    // Ha a Catalog is halott és Redisben sincs, akkor elutasíthatjuk, vagy engedhetjük.
+                    // Most a biztonság kedvéért elutasítjuk, ha 0-nak tűnik.
+                }
             }
 
-            // 1. Mentés adatbázisba
+            // --- 3. VALIDÁCIÓ ---
+            // Ha megtaláltuk a készletet (Redisből VAGY HTTP-ből), ellenőrizzük!
+            if (stockFound)
+            {
+                if (currentStock < booking.TicketCount)
+                {
+                    return BadRequest($"Nincs elegendő jegy! Jelenlegi készlet: {currentStock}, Kért: {booking.TicketCount}");
+                }
+
+                // Optimista levonás a cache-ből (hogy a köv. kérés már a csökkentettet lássa)
+                var newStock = currentStock - booking.TicketCount;
+                await _cache.SetStringAsync(cacheKey, newStock.ToString());
+            }
+            else 
+            {
+                // Opcionális: Ha sehol sem találtuk az adatot (pl. nincs ilyen ID), visszadobhatjuk.
+                // return NotFound("Az esemény nem található vagy nem elérhető.");
+            }
+
+            // --- 4. MENTÉS ADATBÁZISBA ---
             booking.Id = Guid.NewGuid();
             booking.BookingDate = DateTime.UtcNow;
             
             _context.Bookings.Add(booking);
             await _context.SaveChangesAsync();
 
-            // 2. Üzenet küldése RabbitMQ-ra (Most már a VALÓS névvel!)
+            // --- 5. ÜZENET KÜLDÉSE ---
             await _publishEndpoint.Publish(new TicketPurchasedEvent
             {
                 BookingId = booking.Id,
                 EventId = booking.EventId,
                 CustomerEmail = booking.CustomerEmail,
-                EventName = eventName, // <--- ITT HASZNÁLJUK A LEKÉRT NEVET
+                EventName = eventName,
                 TicketCount = booking.TicketCount
             });
 
             return Ok(booking);
         }
 
-        // GET: api/booking
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Booking>>> GetBookings()
         {
