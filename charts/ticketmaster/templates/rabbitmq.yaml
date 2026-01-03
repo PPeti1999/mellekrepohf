@@ -1,8 +1,9 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: rabbitmq
 spec:
+  serviceName: rabbitmq
   replicas: 1
   selector:
     matchLabels:
@@ -13,26 +14,40 @@ spec:
         app: rabbitmq
     spec:
       containers:
-        - name: rabbitmq
-          image: "{{ .Values.rabbitmq.image.repository }}:{{ .Values.rabbitmq.image.tag }}"
-          ports:
-            - containerPort: 5672
-            - containerPort: 15672
-          env:
-            - name: RABBITMQ_DEFAULT_USER
-              value: {{ .Values.rabbitmq.username }}
-            - name: RABBITMQ_DEFAULT_PASS
-              value: {{ .Values.rabbitmq.password }}
+      - name: rabbitmq
+        # Stabil, hivatalos image webes felülettel:
+        image: rabbitmq:3.12-management
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: http
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: "guest"
+        - name: RABBITMQ_DEFAULT_PASS
+          value: "guest"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ticketmaster-rabbit
+  # EZT A NEVET KERESI A TE KÓDOD:
+  name: my-rabbitmq
 spec:
+  type: ClusterIP
   ports:
-    - port: 5672
-      name: amqp
-    - port: 15672
-      name: management
+  - port: 5672
+    targetPort: 5672
+    name: amqp
+  - port: 15672
+    targetPort: 15672
+    name: http
   selector:
     app: rabbitmq
