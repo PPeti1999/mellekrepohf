@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-booking
+  labels:
+    {{- include "ticketmaster.labels" . | nindent 4 }}
+    component: booking
+spec:
+  replicas: {{ .Values.booking.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ticketmaster.selectorLabels" . | nindent 6 }}
+      component: booking
+  template:
+    metadata:
+      labels:
+        {{- include "ticketmaster.selectorLabels" . | nindent 8 }}
+        component: booking
+    spec:
+      containers:
+        - name: booking
+          # JAVÍTVA:
+          image: "{{ .Values.booking.image.repository }}:{{ .Values.booking.image.tag }}"
+          imagePullPolicy: {{ .Values.booking.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          # ... (env változók maradnak)
+          env:
+            # PostgreSQL kapcsolat
+            - name: ConnectionStrings__DefaultConnection
+              value: "Host={{ include "ticketmaster.fullname" . }}-db;Port=5432;Database=bookingdb;Username=postgres;Password={{ .Values.postgresql.password }};"
+            # Redis kapcsolat
+            - name: ConnectionStrings__Redis
+              value: "{{ include "ticketmaster.fullname" . }}-redis:6379"
+            # RabbitMQ kapcsolat
+            - name: RabbitMQ__Host
+              value: "{{ include "ticketmaster.fullname" . }}-rabbit"
+            - name: RabbitMQ__Username
+              value: {{ .Values.rabbitmq.username }}
+            - name: RabbitMQ__Password
+              value: {{ .Values.rabbitmq.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: {{ .Values.booking.nodePort }}
+  selector:
+    {{- include "ticketmaster.selectorLabels" . | nindent 4 }}
+    component: booking

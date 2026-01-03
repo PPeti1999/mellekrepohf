@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-rabbit
+  labels:
+    {{- include "ticketmaster.labels" . | nindent 4 }}
+    component: rabbit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ticketmaster.selectorLabels" . | nindent 6 }}
+      component: rabbit
+  template:
+    metadata:
+      labels:
+        {{- include "ticketmaster.selectorLabels" . | nindent 8 }}
+        component: rabbit
+    spec:
+      containers:
+        - name: rabbitmq
+          image: {{ .Values.rabbitmq.image }}
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: {{ .Values.rabbitmq.username }}
+            - name: RABBITMQ_DEFAULT_PASS
+              value: {{ .Values.rabbitmq.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-rabbit
+spec:
+  ports:
+    - port: 5672
+      name: amqp
+      targetPort: 5672
+    - port: 15672
+      name: management
+      targetPort: 15672
+  selector:
+    {{- include "ticketmaster.selectorLabels" . | nindent 4 }}
+    component: rabbit

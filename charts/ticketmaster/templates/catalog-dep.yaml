@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-catalog
+  labels:
+    {{- include "ticketmaster.labels" . | nindent 4 }}
+    component: catalog
+spec:
+  replicas: {{ .Values.catalog.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ticketmaster.selectorLabels" . | nindent 6 }}
+      component: catalog
+  template:
+    metadata:
+      labels:
+        {{- include "ticketmaster.selectorLabels" . | nindent 8 }}
+        component: catalog
+   spec:
+      containers:
+        - name: catalog
+          # ITT A JAVÍTÁS: Összefűzzük a nevet és a taget
+          image: "{{ .Values.catalog.image.repository }}:{{ .Values.catalog.image.tag }}"
+          imagePullPolicy: {{ .Values.catalog.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          # ... (env változók maradnak)
+          env:
+            # Itt kötjük össze a korábban létrehozott db-dep.yaml-lel
+            - name: ConnectionStrings__DefaultConnection
+              value: "Host={{ include "ticketmaster.fullname" . }}-db;Port=5432;Database=catalogdb;Username=postgres;Password={{ .Values.postgresql.password }};"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # FONTOS: Fix nevet adunk, hogy a BookingService C# kódja (ami http://catalog-service:8080-at hív) megtalálja!
+  name: catalog-service 
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: {{ .Values.catalog.nodePort }}
+  selector:
+    {{- include "ticketmaster.selectorLabels" . | nindent 4 }}
+    component: catalog

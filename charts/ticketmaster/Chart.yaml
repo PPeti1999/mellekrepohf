@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ticketmaster
+description: A TicketMaster Microservices App Helm Chartja
+type: application
+
+# Ez a HELM CHART verziója (tehát a telepítő szkript verziója)
+# Ha változtatsz a YAML fájlokon, ezt kell növelni (pl. 0.1.1)
+version: 0.1.0
+
+# Ez az ALKALMAZÁS verziója (tehát a Docker Image verziója)
+# Ennek EGYEZNIE KELL a Docker tag-gel (v1), amit használsz!
+appVersion: "v1"

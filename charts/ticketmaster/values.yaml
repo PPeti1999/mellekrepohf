@@ -1,0 +1,44 @@
+# --- INFRASTRUKTÚRA ---
+postgresql:
+  image:
+    repository: postgres
+    tag: "15-alpine"
+  password: postgres
+
+redis:
+  image:
+    repository: redis
+    tag: "alpine"
+
+rabbitmq:
+  image:
+    repository: rabbitmq
+    tag: "3-management"
+  username: guest
+  password: guest
+
+# --- SAJÁT SZOLGÁLTATÁSOK (Laboros, tagolt formátum) ---
+catalog:
+  image:
+    repository: ppeti1999/ticketmaster-catalog
+    tag: "v1"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  servicePort: 8080
+  nodePort: 30001
+
+booking:
+  image:
+    repository: ppeti1999/ticketmaster-booking
+    tag: "v1"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  servicePort: 8080
+  nodePort: 30002
+
+worker:
+  image:
+    repository: ppeti1999/ticketmaster-worker
+    tag: "v1"
+    pullPolicy: IfNotPresent
+  replicaCount: 1

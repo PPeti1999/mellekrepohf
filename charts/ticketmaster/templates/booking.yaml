@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking
+spec:
+  replicas: {{ .Values.booking.replicaCount }}
+  selector:
+    matchLabels:
+      app: booking
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      containers:
+        - name: booking
+          image: "{{ .Values.booking.image.repository }}:{{ .Values.booking.image.tag }}"
+          imagePullPolicy: {{ .Values.booking.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ConnectionStrings__DefaultConnection
+              value: "Host=ticketmaster-db;Port=5432;Database=bookingdb;Username=postgres;Password={{ .Values.postgresql.password }};"
+            - name: ConnectionStrings__Redis
+              value: "ticketmaster-redis:6379"
+            - name: RabbitMQ__Host
+              value: "ticketmaster-rabbit"
+            - name: RabbitMQ__Username
+              value: {{ .Values.rabbitmq.username }}
+            - name: RabbitMQ__Password
+              value: {{ .Values.rabbitmq.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: {{ .Values.booking.nodePort }}
+  selector:
+    app: booking

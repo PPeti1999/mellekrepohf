@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-db
+  labels:
+    {{- include "ticketmaster.labels" . | nindent 4 }}
+    component: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ticketmaster.selectorLabels" . | nindent 6 }}
+      component: db
+  template:
+    metadata:
+      labels:
+        {{- include "ticketmaster.selectorLabels" . | nindent 8 }}
+        component: db
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgresql.image }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgresql.password }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-db
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    {{- include "ticketmaster.selectorLabels" . | nindent 4 }}
+    component: db

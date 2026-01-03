@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog
+spec:
+  replicas: {{ .Values.catalog.replicaCount }}
+  selector:
+    matchLabels:
+      app: catalog
+  template:
+    metadata:
+      labels:
+        app: catalog
+    spec:
+      containers:
+        - name: catalog
+          # LABOR TECHNIKA: Összefűzés
+          image: "{{ .Values.catalog.image.repository }}:{{ .Values.catalog.image.tag }}"
+          imagePullPolicy: {{ .Values.catalog.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ConnectionStrings__DefaultConnection
+              value: "Host=ticketmaster-db;Port=5432;Database=catalogdb;Username=postgres;Password={{ .Values.postgresql.password }};"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service # Fix név, hogy a Booking megtalálja
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: {{ .Values.catalog.nodePort }}
+  selector:
+    app: catalog

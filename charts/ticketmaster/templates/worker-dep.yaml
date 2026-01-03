@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ticketmaster.fullname" . }}-worker
+  labels:
+    {{- include "ticketmaster.labels" . | nindent 4 }}
+    component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ticketmaster.selectorLabels" . | nindent 6 }}
+      component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "ticketmaster.selectorLabels" . | nindent 8 }}
+        component: worker
+  spec:
+      containers:
+        - name: worker
+          # JAVÍTVA:
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          # ... (env változók maradnak)
+          env:
+            # RabbitMQ kapcsolat
+            - name: RabbitMQ__Host
+              value: "{{ include "ticketmaster.fullname" . }}-rabbit"
+            - name: RabbitMQ__Username
+              value: {{ .Values.rabbitmq.username }}
+            - name: RabbitMQ__Password
+              value: {{ .Values.rabbitmq.password }}
