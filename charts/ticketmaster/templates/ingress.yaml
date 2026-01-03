@@ -6,14 +6,11 @@ spec:
   entryPoints:
     - web
   routes:
-    # Route a Catalog Service-hez
     - match: PathPrefix(`/api/Events`)
       kind: Rule
       services:
         - name: catalog-service
           port: 8080
-    
-    # Route a Booking Service-hez
     - match: PathPrefix(`/api/Booking`)
       kind: Rule
       services:

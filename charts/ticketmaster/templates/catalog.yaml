@@ -19,7 +19,7 @@ spec:
           imagePullPolicy: {{ .Values.catalog.image.pullPolicy }}
           ports:
             - containerPort: 8080
-         env:
+          env:
             - name: ConnectionStrings__DefaultConnection
               value: {{ .Values.catalog.connectionString | quote }}
 ---
