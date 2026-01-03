@@ -20,15 +20,15 @@ spec:
             - containerPort: 8080
           env:
             - name: ConnectionStrings__DefaultConnection
-              value: "Host=ticketmaster-db;Port=5432;Database=bookingdb;Username=postgres;Password={{ .Values.postgresql.password }};"
+              value: {{ .Values.booking.connectionString | quote }}
             - name: ConnectionStrings__Redis
-              value: "ticketmaster-redis:6379"
+              value: {{ .Values.booking.redisConnection | quote }}
             - name: RabbitMQ__Host
-              value: "ticketmaster-rabbit"
+              value: {{ .Values.booking.rabbitHost | quote }}
             - name: RabbitMQ__Username
-              value: {{ .Values.rabbitmq.username }}
+              value: {{ .Values.booking.rabbitUser | quote }}
             - name: RabbitMQ__Password
-              value: {{ .Values.rabbitmq.password }}
+              value: {{ .Values.booking.rabbitPass | quote }}
 ---
 apiVersion: v1
 kind: Service

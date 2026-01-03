@@ -18,8 +18,8 @@ spec:
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           env:
             - name: RabbitMQ__Host
-              value: "ticketmaster-rabbit"
+              value: {{ .Values.worker.rabbitHost | quote }}
             - name: RabbitMQ__Username
-              value: {{ .Values.rabbitmq.username }}
+              value: {{ .Values.worker.rabbitUser | quote }}
             - name: RabbitMQ__Password
-              value: {{ .Values.rabbitmq.password }}
+              value: {{ .Values.worker.rabbitPass | quote }}

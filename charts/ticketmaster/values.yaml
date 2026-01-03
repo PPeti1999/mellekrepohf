@@ -16,8 +16,9 @@ rabbitmq:
     tag: "3-management"
   username: guest
   password: guest
+# --- SAJÁT SZOLGÁLTATÁSOK ---
+# A képeket továbbra is a Docker Hub-ról szedjük (lásd előző lépések)
 
-# --- SAJÁT SZOLGÁLTATÁSOK (Laboros, tagolt formátum) ---
 catalog:
   image:
     repository: ppeti1999/ticketmaster-catalog
@@ -25,7 +26,9 @@ catalog:
     pullPolicy: IfNotPresent
   replicaCount: 1
   servicePort: 8080
-  nodePort: 30001
+  # Connection String a Bitnami Postgres-hez:
+  # Host: my-postgres-postgresql (ez a helm install neve + a chart neve)
+  connectionString: "Host=my-postgres-postgresql;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
 
 booking:
   image:
@@ -34,7 +37,14 @@ booking:
     pullPolicy: IfNotPresent
   replicaCount: 1
   servicePort: 8080
-  nodePort: 30002
+  # Postgres kapcsolat
+  connectionString: "Host=my-postgres-postgresql;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
+  # Redis kapcsolat (Bitnami service neve: my-redis-master)
+  redisConnection: "my-redis-master:6379"
+  # RabbitMQ kapcsolat
+  rabbitHost: "my-rabbitmq"
+  rabbitUser: "guest"
+  rabbitPass: "guest"
 
 worker:
   image:
@@ -42,3 +52,6 @@ worker:
     tag: "v1"
     pullPolicy: IfNotPresent
   replicaCount: 1
+  rabbitHost: "my-rabbitmq"
+  rabbitUser: "guest"
+  rabbitPass: "guest"
