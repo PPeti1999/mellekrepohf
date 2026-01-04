@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. PostgreSQL adatbázis (Catalog és Booking perzisztencia)
+  # 1. Adatbázis (PostgreSQL) - A Catalog és Booking servicek adatainak
   ticket-db:
     image: postgres:15-alpine
     container_name: ticket-db
@@ -10,12 +10,12 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=ticketmaster
     ports:
-      - "5432:5432"
+      - "5432:5432"  # Kivezetjük, hogy a Visual Studio elérje
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: always
 
-  # 2. Redis Cache (Booking készletkezelés és gyorsítótár)
+  # 2. Gyorsítótár (Redis) - A foglalások és készlet gyors kezeléséhez
   ticket-cache:
     image: redis:alpine
     container_name: ticket-cache
@@ -23,18 +23,17 @@ services:
       - "6379:6379"
     restart: always
 
-  # 3. RabbitMQ (Üzenetküldés Booking -> Notification)
+  # 3. Üzenetküldő (RabbitMQ) - A Booking és Notification közötti kommunikációhoz
   ticket-rabbit:
     image: rabbitmq:3-management
     container_name: ticket-rabbit
     ports:
-      - "5672:5672"   # AMQP port (kód kommunikációhoz)
-      - "15672:15672" # Management UI (böngészőhöz)
+      - "5672:5672"   # Applikáció kommunikáció
+      - "15672:15672" # Adminisztrációs felület (böngésző)
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
     restart: always
 
-# Adatbázis adatainak megőrzése újraindítás után is
 volumes:
   postgres-data:

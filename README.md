@@ -30,6 +30,7 @@ A komponensekre bontás az **üzleti funkciók** szétválasztásán alapul:
 * **RabbitMQ & MassTransit:** Aszinkron, üzenetsor alapú kommunikáció a szolgáltatások laza csatolásához. Konténerben futtatva.
 * **Traefik:** Ingress Controller a bejövő forgalom routingolásához a Kubernetes klaszteren belül.
 * **REST API & Polly:** Szinkron kommunikáció a szolgáltatások között, hibatűrő (Retry) mechanizmussal kiegészítve.
+* **MongoDB**analytics-service (.NET 8 Worker): ÚJ KOMPONENS. Háttérszolgáltatás, amely feliratkozik a TicketPurchased eseményre (ugyanarra, amire a Notification is), és statisztikai céllal elmenti a vásárlást egy MongoDB adatbázisba.
 
 ### Komponensek listája
 

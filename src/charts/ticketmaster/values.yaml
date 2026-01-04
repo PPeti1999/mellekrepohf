@@ -17,7 +17,6 @@ rabbitmq:
   username: guest
   password: guest
 # --- SAJÁT SZOLGÁLTATÁSOK ---
-# A képeket továbbra is a Docker Hub-ról szedjük (lásd előző lépések)
 
 catalog:
   image:
@@ -26,9 +25,8 @@ catalog:
     pullPolicy: IfNotPresent
   replicaCount: 1
   servicePort: 8080
-  # Connection String a Bitnami Postgres-hez:
-  # Host: my-postgres-postgresql (ez a helm install neve + a chart neve)
-  connectionString: "Host=my-postgres-postgresql;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
+  # ÚJ Connection String a saját Postgres-hez (ticketmaster-db):
+  connectionString: "Host=ticketmaster-db;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
 
 booking:
   image:
@@ -38,10 +36,10 @@ booking:
   replicaCount: 1
   servicePort: 8080
   # Postgres kapcsolat
-  connectionString: "Host=my-postgres-postgresql;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
-  # Redis kapcsolat (Bitnami service neve: my-redis-master)
-  redisConnection: "my-redis-master:6379"
-  # RabbitMQ kapcsolat
+  connectionString: "Host=ticketmaster-db;Port=5432;Database=ticketmaster;Username=postgres;Password=postgres;"
+  # Redis kapcsolat (ticketmaster-redis)
+  redisConnection: "ticketmaster-redis:6379"
+  # RabbitMQ kapcsolat (my-rabbitmq a neve a te rabbitmq.yaml fájlodban)
   rabbitHost: "my-rabbitmq"
   rabbitUser: "guest"
   rabbitPass: "guest"

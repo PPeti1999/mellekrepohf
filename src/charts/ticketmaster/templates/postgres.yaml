@@ -14,18 +14,21 @@ spec:
     spec:
       containers:
         - name: postgres
-          # LABOR TECHNIKA:
-          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          image: postgres:15-alpine
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgresql.password }}
+              value: "postgres"
+            - name: POSTGRES_USER
+              value: "postgres"
+            - name: POSTGRES_DB
+              value: "ticketmaster"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ticketmaster-db # Ezen a néven érik el a többiek
+  name: ticketmaster-db  # EZ LESZ A NEVE A HÁLÓZATON
 spec:
   ports:
     - port: 5432

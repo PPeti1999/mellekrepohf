@@ -38,7 +38,7 @@ services:
 
   catalog-service:
     build:
-      context: ./src/CatalogService
+      context: ./CatalogService
       dockerfile: Dockerfile
     container_name: catalog-service
     ports:
@@ -55,7 +55,7 @@ services:
 
   booking-service:
     build:
-      context: ./src/BookingService
+      context: ./BookingService
       dockerfile: Dockerfile
     container_name: booking-service
     ports:
@@ -75,7 +75,7 @@ services:
 
   notification-worker:
     build:
-      context: ./src/NotificationWorker
+      context: ./NotificationWorker
       dockerfile: Dockerfile
     container_name: notification-worker
     environment:
