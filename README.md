@@ -41,13 +41,14 @@ A rendszer elemei, rövid leírása és a választott technológiák:
 | **ticket-front** | Vue.js / SPA | (Opcionális) Webalkalmazás a vásárlóknak. |
 | **ticket-admin** | Vue.js / SPA | (Opcionális) Webalkalmazás az adminisztrátoroknak. |
 | **catalog-service** | .NET 8 WebAPI | Események kezelése és listázása. Saját adatbázist (PostgreSQL) használ. REST API-t nyújt. |
-| **booking-service** | .NET 8 WebAPI | Jegyvásárlás kezelése. A készletet Redisben kezeli, tranzakciót Postgresben, majd eseményt publikál (MassTransit). REST API-t nyújt. Hibatűrő HTTP hívást alkalmaz a Catalog felé (Polly). |
+| **booking-service** | .NET 8 WebAPI | Jegyvásárlás kezelése. A készletet Redisben kezeli, tranzakciót Postgresben, majd eseményt publikál (MassTransit). REST API-t nyújt Hibatűrő HTTP hívást alkalmaz a Catalog felé (Polly). |
 | **notification-worker** | .NET 8 Worker | Háttérszolgáltatás, amely feliratkozik (MassTransit) a foglalási eseményekre, és szimulálja az értesítést. |
 | **catalog-db** | PostgreSQL | Relációs adatbázis (konténer) az események perzisztens tárolásához. |
 | **booking-cache** | Redis | Elosztott cache (konténer) a foglalások gyors kezeléséhez és a készletnyilvántartáshoz. |
 | **message-broker** | RabbitMQ | Aszinkron üzenetsor (konténer) a `booking-service` és a `notification-worker` közötti kommunikációhoz. |
 | **API Gateway** | Traefik | Belépési pont és routing (`/api/catalog`, `/api/booking`). |
-
+| **analytics-service** |	.NET 8 Worker|	ÚJ! Háttérszolgáltatás, amely a vásárlási eseményeket (MassTransit) egy MongoDB NoSQL adatbázisba menti statisztikai céllal.
+| **ticketmaster-mongo** |	MongoDB	| Dokumentum alapú adatbázis (konténer) az analitikai adatoknak.
 ### Logikai architektúra ábra
 
 A komponensek közötti kapcsolatok, az adatfolyam és a telepítési környezet (Azure) az alábbi ábrán látható:

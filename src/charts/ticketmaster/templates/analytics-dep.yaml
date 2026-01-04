@@ -18,11 +18,21 @@ spec:
           imagePullPolicy: {{ .Values.analytics.image.pullPolicy }}
           env:
             - name: ConnectionStrings__MongoDb
-              value: "mongodb://ticketmaster-mongo:27017"
+              value: "mongodb://ticketmaster-mongo:27017" # Ezt hagyhatjuk így, vagy behúzhatjuk ConfigMapből
+            
+            # --- ITT A VÁLTOZÁS ---
             - name: RabbitMQ__Host
-              # Itt hivatkozunk a RabbitMQ Service nevére (my-rabbitmq a te esetedben)
-              value: {{ .Values.analytics.rabbitHost | quote }}
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: rabbit-host
             - name: RabbitMQ__Username
-              value: {{ .Values.analytics.rabbitUser | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-user
             - name: RabbitMQ__Password
-              value: {{ .Values.analytics.rabbitPass | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-pass

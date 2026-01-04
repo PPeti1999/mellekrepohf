@@ -53,3 +53,14 @@ worker:
   rabbitHost: "my-rabbitmq"
   rabbitUser: "guest"
   rabbitPass: "guest"
+
+  # ... (a fájl vége)
+
+analytics:
+  image:
+    repository: ppeti1999/ticketmaster-analytics
+    tag: "v1"
+    pullPolicy: IfNotPresent
+  rabbitHost: "my-rabbitmq"  # FONTOS: Ez legyen ugyanaz, mint a rabbitmq.yaml metadata.name értéke!
+  rabbitUser: "guest"
+  rabbitPass: "guest"

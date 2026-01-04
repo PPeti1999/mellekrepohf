@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticketmaster-config
+data:
+  # Itt tároljuk a RabbitMQ címét, ami nem titkos
+  rabbit-host: {{ .Values.analytics.rabbitHost | default "rabbitmq" }}
+  # Itt tárolhatjuk a DB hostokat is
+  postgres-host: "ticketmaster-db"
+  mongo-host: "ticketmaster-mongo"
