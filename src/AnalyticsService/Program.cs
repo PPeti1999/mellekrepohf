@@ -1,0 +1,71 @@
+using AnalyticsService.Contracts;
+using MassTransit;
+using MongoDB.Bson;
+using MongoDB.Driver;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+// 1. MongoDB Kapcsolat
+var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDb") ?? "mongodb://ticketmaster-mongo:27017";
+var mongoClient = new MongoClient(mongoConnectionString);
+var mongoDatabase = mongoClient.GetDatabase("TicketMasterAnalytics");
+// Regisztráljuk a collection-t, hogy injektálható legyen a Consumerbe
+builder.Services.AddSingleton(mongoDatabase.GetCollection<BsonDocument>("TicketPurchases"));
+
+// 2. MassTransit (RabbitMQ) Konfiguráció
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<TicketPurchasedAnalyticsConsumer>();
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        // A rabbitmq service neve a kubernetesben "rabbitmq" (vagy "my-rabbitmq", a rabbitmq.yaml-től függ)
+        // A te esetedben a rabbitmq.yaml-ben a service neve: "my-rabbitmq" volt korábban, de most a chartban "rabbitmq" lesz.
+        // A biztonság kedvéért env változóból olvassuk.
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
+        
+        cfg.Host(rabbitHost, "/", h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+
+        cfg.ReceiveEndpoint("analytics-service-queue", e =>
+        {
+            e.ConfigureConsumer<TicketPurchasedAnalyticsConsumer>(context);
+        });
+    });
+});
+
+var host = builder.Build();
+host.Run();
+
+// 3. A Consumer osztály (Ez végzi a mentést)
+public class TicketPurchasedAnalyticsConsumer : IConsumer<TicketPurchasedEvent>
+{
+    private readonly IMongoCollection<BsonDocument> _collection;
+    private readonly ILogger<TicketPurchasedAnalyticsConsumer> _logger;
+
+    public TicketPurchasedAnalyticsConsumer(IMongoCollection<BsonDocument> collection, ILogger<TicketPurchasedAnalyticsConsumer> logger)
+    {
+        _collection = collection;
+        _logger = logger;
+    }
+
+    public async Task Consume(ConsumeContext<TicketPurchasedEvent> context)
+    {
+        var message = context.Message;
+        _logger.LogInformation("Analytics: Új vásárlás rögzítése MongoDB-be. EventId: {EventId}, User: {UserId}", message.EventId, message.UserId);
+
+        var document = new BsonDocument
+        {
+            { "EventId", message.EventId.ToString() },
+            { "UserId", message.UserId },
+            { "SeatNumber", message.SeatNumber },
+            { "PurchaseDate", DateTime.UtcNow },
+            { "Source", "RabbitMQ" }
+        };
+
+        await _collection.InsertOneAsync(document);
+    }
+}
