@@ -17,9 +17,19 @@ spec:
           image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
           imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
           env:
+            # --- RabbitMQ Config ---
             - name: RabbitMQ__Host
-              value: {{ .Values.worker.rabbitHost | quote }}
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: rabbit-host
             - name: RabbitMQ__Username
-              value: {{ .Values.worker.rabbitUser | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-user
             - name: RabbitMQ__Password
-              value: {{ .Values.worker.rabbitPass | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-pass

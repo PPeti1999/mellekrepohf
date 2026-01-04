@@ -20,8 +20,26 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            # --- Adatbázis Változók ---
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: postgres-host
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: postgres-pass
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: postgres-user
+            
+            # --- Connection String összerakása ---
             - name: ConnectionStrings__DefaultConnection
-              value: {{ .Values.catalog.connectionString | quote }}
+              value: "Host=$(DB_HOST);Port=5432;Database=ticketmaster;Username=$(DB_USER);Password=$(DB_PASS);"
 ---
 apiVersion: v1
 kind: Service

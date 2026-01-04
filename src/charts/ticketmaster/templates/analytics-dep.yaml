@@ -17,10 +17,16 @@ spec:
           image: {{ .Values.analytics.image.repository }}:{{ .Values.analytics.image.tag }}
           imagePullPolicy: {{ .Values.analytics.image.pullPolicy }}
           env:
+            # --- Mongo Connection ---
+            - name: MONGO_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: mongo-host
             - name: ConnectionStrings__MongoDb
-              value: "mongodb://ticketmaster-mongo:27017" # Ezt hagyhatjuk így, vagy behúzhatjuk ConfigMapből
-            
-            # --- ITT A VÁLTOZÁS ---
+              value: "mongodb://$(MONGO_HOST):27017" # Változó behelyettesítés
+
+            # --- RabbitMQ Config (ConfigMap + Secret) ---
             - name: RabbitMQ__Host
               valueFrom:
                 configMapKeyRef:

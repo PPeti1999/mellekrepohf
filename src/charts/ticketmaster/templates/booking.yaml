@@ -19,16 +19,50 @@ spec:
           ports:
             - containerPort: 8080
           env:
+            # --- 1. Postgres (Ugyanaz a trükk) ---
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: postgres-host
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: postgres-pass
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: postgres-user
             - name: ConnectionStrings__DefaultConnection
-              value: {{ .Values.booking.connectionString | quote }}
+              value: "Host=$(DB_HOST);Port=5432;Database=ticketmaster;Username=$(DB_USER);Password=$(DB_PASS);"
+
+            # --- 2. Redis ---
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: redis-host
             - name: ConnectionStrings__Redis
-              value: {{ .Values.booking.redisConnection | quote }}
+              value: "$(REDIS_HOST):6379"
+
+            # --- 3. RabbitMQ ---
             - name: RabbitMQ__Host
-              value: {{ .Values.booking.rabbitHost | quote }}
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: rabbit-host
             - name: RabbitMQ__Username
-              value: {{ .Values.booking.rabbitUser | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-user
             - name: RabbitMQ__Password
-              value: {{ .Values.booking.rabbitPass | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-pass
 ---
 apiVersion: v1
 kind: Service
