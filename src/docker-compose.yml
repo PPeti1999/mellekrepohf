@@ -85,6 +85,27 @@ services:
       - RabbitMQ__Password=guest
     depends_on:
       - ticket-rabbit
+  ticket-mongo:
+    image: mongo:latest
+    container_name: ticket-mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - default
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: AnalyticsService/Dockerfile
+    container_name: analytics-service
+    depends_on:
+      - ticket-rabbit
+      - ticket-mongo
+    environment:
+      - ConnectionStrings__MongoDb=mongodb://ticket-mongo:27017
+      - RabbitMQ__Host=ticket-rabbit
+    networks:
+      - default
 
 volumes:
   postgres-data:
