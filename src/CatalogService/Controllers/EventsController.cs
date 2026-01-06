@@ -2,6 +2,7 @@ using CatalogService.Data;
 using CatalogService.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization; // <--- EZT NE FELEJTSD EL!
 
 namespace CatalogService.Controllers
 {
@@ -33,6 +34,7 @@ namespace CatalogService.Controllers
         }
 
         // POST: api/events
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent(Event evt)
         {
@@ -44,6 +46,7 @@ namespace CatalogService.Controllers
         }
 
         // --- Meglévő esemény módosítása (PUT) ---
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEvent(Guid id, Event updatedEvent)
         {
