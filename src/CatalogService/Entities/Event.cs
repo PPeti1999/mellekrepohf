@@ -1,23 +1,18 @@
-using System.ComponentModel.DataAnnotations;
+using System;
 
 namespace CatalogService.Entities
 {
     public class Event
     {
         public Guid Id { get; set; }
-
-        [Required]
         public string Name { get; set; } = string.Empty;
+        
+        // Ezek hiányoztak a Controllerből:
+        public string Description { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public int AvailableTickets { get; set; }
 
         public DateTime Date { get; set; }
-
-        [Required]
-        public string Venue { get; set; } = string.Empty;
-
-        [Range(0, 1000000)]
         public decimal Price { get; set; }
-
-        [Range(0, 100000)]
-        public int AvailableTickets { get; set; }
     }
 }

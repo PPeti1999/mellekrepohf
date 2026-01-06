@@ -42,5 +42,55 @@ namespace CatalogService.Controllers
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
+
+        // --- Meglévő esemény módosítása (PUT) ---
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateEvent(Guid id, Event updatedEvent)
+        {
+            if (id != updatedEvent.Id)
+            {
+                return BadRequest("Az URL-ben lévő ID nem egyezik a küldött objektum ID-jával.");
+            }
+
+            // Mivel a FindAsync trackeli az entitást, és mi nem akarunk teljes update-et a kliens minden mezőjéből (vagy pont azt akarunk),
+            // a legtisztább, ha lekérjük a meglévőt és frissítjük a mezőit.
+            var existingEvent = await _context.Events.FindAsync(id);
+
+            if (existingEvent == null)
+            {
+                return NotFound();
+            }
+
+            // Adatok frissítése
+            existingEvent.Name = updatedEvent.Name;
+            existingEvent.Description = updatedEvent.Description;
+            existingEvent.Location = updatedEvent.Location;
+            existingEvent.AvailableTickets = updatedEvent.AvailableTickets;
+            existingEvent.Date = updatedEvent.Date;
+            existingEvent.Price = updatedEvent.Price;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EventExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+         // Segédfüggvény az UpdateEvent-hez
+        private bool EventExists(Guid id)
+        {
+            return _context.Events.Any(e => e.Id == id);
+        }
     }
 }
