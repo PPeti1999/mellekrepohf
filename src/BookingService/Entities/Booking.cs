@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+using System;
 
 namespace BookingService.Entities
 {
@@ -6,7 +6,10 @@ namespace BookingService.Entities
     {
         public Guid Id { get; set; }
         public Guid EventId { get; set; }
-        public string CustomerName { get; set; } = string.Empty;
+        
+        // Ez a mező hiányzott, ezért volt a hiba:
+        public string EventName { get; set; } = string.Empty;
+
         public string CustomerEmail { get; set; } = string.Empty;
         public int TicketCount { get; set; }
         public DateTime BookingDate { get; set; }

@@ -1,15 +1,14 @@
 version: '3.8'
 
 services:
-  # --- 1. INFRASTRUKTÚRA (DB, Cache, Message Broker) ---
-  
+  # --- 1. INFRASTRUKTÚRA ---
   ticket-db:
     image: postgres:15-alpine
     container_name: ticket-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ticketmaster
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ticketmaster
     ports:
       - "5432:5432"
     volumes:
@@ -30,39 +29,63 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     restart: always
 
-  # --- 2. SAJÁT SZOLGÁLTATÁSOK ---
+  ticket-mongo:
+    image: mongo:latest
+    container_name: ticket-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
 
+  # --- 2. MIKROSZOLGÁLTATÁSOK ---
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./AuthService
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "5005:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - JWT__Key=EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026
+
+# --- 2. MIKROSZOLGÁLTATÁSOK ---
+
+  # Catalog Service
   catalog-service:
     build:
-      context: ./CatalogService
-      dockerfile: Dockerfile
+      context: ./CatalogService       # JAVÍTVA: . helyett ./CatalogService
+      dockerfile: Dockerfile          # JAVÍTVA: CatalogService/Dockerfile helyett Dockerfile
     container_name: catalog-service
     ports:
-      - "5001:8080"  # A géped 5001-es portját kötjük a konténer 8080-asára
+      - "5001:8080"
     environment:
-      # FONTOS: Itt a 'localhost' helyett a 'ticket-db' nevet használjuk!
-      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
+      - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=ticket-db;Port=5432;Database=ticketmaster;User Id=postgres;Password=postgres;
       - RabbitMQ__Host=ticket-rabbit
       - RabbitMQ__Username=guest
       - RabbitMQ__Password=guest
     depends_on:
       - ticket-db
+      - ticket-rabbit
 
+  # Booking Service
   booking-service:
     build:
-      context: ./BookingService
-      dockerfile: Dockerfile
+      context: ./BookingService       # JAVÍTVA
+      dockerfile: Dockerfile          # JAVÍTVA
     container_name: booking-service
     ports:
-      - "5002:8080" # A géped 5002-es portján lesz elérhető
+      - "5002:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
-      # Itt felülírjuk az appsettings.json beállításait környezeti változókkal
+      - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=ticket-db;Port=5432;Database=ticketmaster;User Id=postgres;Password=postgres;
       - ConnectionStrings__Redis=ticket-cache:6379
       - RabbitMQ__Host=ticket-rabbit
@@ -73,39 +96,35 @@ services:
       - ticket-cache
       - ticket-rabbit
 
+  # Notification Worker
   notification-worker:
     build:
-      context: ./NotificationWorker
-      dockerfile: Dockerfile
+      context: ./NotificationWorker   # JAVÍTVA
+      dockerfile: Dockerfile          # JAVÍTVA
     container_name: notification-worker
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development  # <--- EZT A SORT ADD HOZZÁ!
+      - ASPNETCORE_ENVIRONMENT=Development
       - RabbitMQ__Host=ticket-rabbit
       - RabbitMQ__Username=guest
       - RabbitMQ__Password=guest
     depends_on:
       - ticket-rabbit
-  ticket-mongo:
-    image: mongo:latest
-    container_name: ticket-mongo
-    ports:
-      - "27017:27017"
-    networks:
-      - default
 
+  # Analytics Service
   analytics-service:
     build:
-      context: .
-      dockerfile: AnalyticsService/Dockerfile
+      context: .                        # VISSZA: A pont (.) kell, mert a Solution-t másolja!
+      dockerfile: AnalyticsService/Dockerfile  # Megadjuk az útvonalat a fájlhoz
     container_name: analytics-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MongoDb=mongodb://ticket-mongo:27017
+      - RabbitMQ__Host=ticket-rabbit
+      - RabbitMQ__Username=guest
+      - RabbitMQ__Password=guest
     depends_on:
       - ticket-rabbit
       - ticket-mongo
-    environment:
-      - ConnectionStrings__MongoDb=mongodb://ticket-mongo:27017
-      - RabbitMQ__Host=ticket-rabbit
-    networks:
-      - default
-
 volumes:
   postgres-data:
+  mongo-data:

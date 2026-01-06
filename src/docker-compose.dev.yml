@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. Adatbázis (PostgreSQL) - A Catalog és Booking servicek adatainak
+  # 1. PostgreSQL adatbázis
   ticket-db:
     image: postgres:15-alpine
     container_name: ticket-db
@@ -10,12 +10,12 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=ticketmaster
     ports:
-      - "5432:5432"  # Kivezetjük, hogy a Visual Studio elérje
+      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: always
 
-  # 2. Gyorsítótár (Redis) - A foglalások és készlet gyors kezeléséhez
+  # 2. Redis Cache
   ticket-cache:
     image: redis:alpine
     container_name: ticket-cache
@@ -23,17 +23,28 @@ services:
       - "6379:6379"
     restart: always
 
-  # 3. Üzenetküldő (RabbitMQ) - A Booking és Notification közötti kommunikációhoz
+  # 3. RabbitMQ
   ticket-rabbit:
     image: rabbitmq:3-management
     container_name: ticket-rabbit
     ports:
-      - "5672:5672"   # Applikáció kommunikáció
-      - "15672:15672" # Adminisztrációs felület (böngésző)
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
     restart: always
 
+  # 4. MongoDB (Analitikához)
+  ticket-mongo:
+    image: mongo:latest
+    container_name: ticket-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
 volumes:
   postgres-data:
+  mongo-data:
