@@ -56,8 +56,15 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    dbContext.Database.Migrate();
+    var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+    try 
+    {
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"HIBA a migráció során: {ex.Message}");
+    }
 }
 
 if (app.Environment.IsDevelopment())

@@ -50,13 +50,17 @@ builder.Services.AddMassTransit(x =>
         });
     });
 });
+// 4. HttpClient + Polly (Hibatűrés)
+// JAVÍTOTT RÉSZ:
+builder.Services.AddHttpClient("catalog") // Adunk neki egy nevet, bár nem kötelező, de segít
+       .AddStandardResilienceHandler();   // Így már meg kell találnia a 8.10.0 verzióval
 
 var app = builder.Build();
-
+// --- Middleware és Migráció ---
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
-    dbContext.Database.Migrate();
+      var db = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+    try { db.Database.Migrate(); } catch { }
 }
 
 if (app.Environment.IsDevelopment())
