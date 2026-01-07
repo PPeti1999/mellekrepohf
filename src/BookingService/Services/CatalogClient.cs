@@ -1,14 +1,13 @@
 using BookingService.Models;
+using System.Text.Json; // <--- FONTOS: Ez kell a JsonSerializerOptions-hoz
 
 namespace BookingService.Services
 {
-    // Interfész, hogy a Controller csak ezt ismerje
     public interface ICatalogClient
     {
         Task<CatalogEventDto?> GetEventAsync(Guid eventId);
     }
 
-    // A konkrét megvalósítás
     public class CatalogClient : ICatalogClient
     {
         private readonly HttpClient _httpClient;
@@ -24,15 +23,21 @@ namespace BookingService.Services
         {
             try
             {
-                // Itt hívjuk meg a Catalog Service-t. 
-                // A BaseAddress-t a Program.cs-ben állítjuk be, itt csak az útvonal kell.
-                var eventData = await _httpClient.GetFromJsonAsync<CatalogEventDto>($"/api/Events/{eventId}");
+                // JAVÍTÁS: Megmondjuk a JSON olvasónak, hogy ne törődjön a kis/nagybetűkkel!
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true 
+                };
+
+                // Átadjuk az options-t a hívásnak
+                var eventData = await _httpClient.GetFromJsonAsync<CatalogEventDto>($"/api/Events/{eventId}", options);
+                
                 return eventData;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Nem sikerült elérni a Catalog Service-t az {EventId} lekérdezésekor.", eventId);
-                return null; // Ha hiba van, null-t adunk vissza
+                return null;
             }
         }
     }

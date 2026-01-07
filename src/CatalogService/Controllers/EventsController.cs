@@ -25,7 +25,6 @@ namespace CatalogService.Controllers
         }
 
         // GET: api/events/{id}
-        [Authorize]
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(Guid id)
         {
