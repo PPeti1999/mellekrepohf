@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
+using BookingService.Services;
 
 namespace BookingService.Controllers
 {
@@ -20,109 +21,83 @@ namespace BookingService.Controllers
         private readonly IDistributedCache _cache;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly HttpClient _httpClient;
+        private readonly ICatalogClient _catalogClient; // <--- Itt az új kliens
         
         public BookingController(
-            BookingDbContext context, 
-            IDistributedCache cache, 
+            BookingDbContext context,
+            IDistributedCache cache,
             IPublishEndpoint publishEndpoint,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            ICatalogClient catalogClient)
         {
-           _context = context;
+            _context = context;
             _cache = cache;
+            _catalogClient = catalogClient; ;
             _publishEndpoint = publishEndpoint;
-            _httpClient = httpClientFactory.CreateClient("catalog"); 
+            _httpClient = httpClientFactory.CreateClient("catalog");
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] BookingRequest request)
         {
-            // A felhasználó e-mailjét a tokenből vesszük ki (ClaimTypes.Name)
-            // Ez garantálja, hogy a hitelesített felhasználó nevében történik a foglalás
-            var userEmail = User.FindFirst(ClaimTypes.Name)?.Value;
-            
-            if (string.IsNullOrEmpty(userEmail)) 
-            {
-                // Ha valamiért nincs a tokenben név, fallback a requestre (opcionális)
-                // Éles rendszerben itt Unauthorized-ot dobnánk.
-                userEmail = request.CustomerEmail; 
-            }
-              string cacheKey = $"event:{request.EventId}";
-            int currentStock = 0;
-            string eventName = "Ismeretlen Esemény";
-            bool stockFound = false;
+           // User email kinyerése
+            var userEmail = User.FindFirst(ClaimTypes.Name)?.Value ?? request.CustomerEmail;
+            string cacheKey = $"event_stock_{request.EventId}";
+            int? currentStock = null;
+            string eventName = "Ismeretlen esemény";
 
-            // --- 1. REDIS CHECK ---
+            // --- 1. LÉPÉS: REDIS (Gyorsítótár) ---
             var cachedStockString = await _cache.GetStringAsync(cacheKey);
-
-            if (!string.IsNullOrEmpty(cachedStockString) && int.TryParse(cachedStockString, out currentStock))
+            if (!string.IsNullOrEmpty(cachedStockString))
             {
-                stockFound = true;
+                currentStock = int.Parse(cachedStockString);
+                // Opcionális: Ha a név is cache-elve van, azt is kivehetnéd, de most egyszerűsítünk
             }
-            else
+           else
             {
-                // --- 2. HTTP FALLBACK (Catalog) ---
-                try 
+                // --- 2. LÉPÉS: HTTP FALLBACK (Ha nincs Redisben) ---
+                // Itt használjuk az új CatalogClient-et, ami Polly-val védett!
+                var eventDto = await _catalogClient.GetEventAsync(request.EventId);
+
+                if (eventDto != null)
                 {
-                    string catalogUrl = $"http://catalog-service:8080/api/Events/{request.EventId}";
-                    var response = await _httpClient.GetAsync(catalogUrl);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var content = await response.Content.ReadAsStringAsync();
-                        using var doc = JsonDocument.Parse(content);
-                        
-                        if (doc.RootElement.TryGetProperty("availableTickets", out var ticketsElement))
-                        {
-                            currentStock = ticketsElement.GetInt32();
-                            stockFound = true;
-                            await _cache.SetStringAsync(cacheKey, currentStock.ToString());
-                        }
-                        if (doc.RootElement.TryGetProperty("name", out var nameElement))
-                        {
-                            eventName = nameElement.GetString() ?? eventName;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"HIBA: Nem sikerült elérni a Catalogot: {ex.Message}");
+                    currentStock = eventDto.AvailableTickets;
+                    eventName = eventDto.Name;
+
+                    // --- 3. LÉPÉS: CACHE FELTÖLTÉS (Öngyógyítás) ---
+                    // Elmentjük 10 percre, hogy legközelebb gyors legyen
+                    await _cache.SetStringAsync(cacheKey, currentStock.ToString(), 
+                        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
                 }
             }
 
-            // --- 3. VALIDÁCIÓ ---
-            if (stockFound)
-            if (string.IsNullOrEmpty(userEmail)) 
+            // --- 4. LÉPÉS: VALIDÁCIÓ ---
+            if (currentStock == null)
             {
-                if (currentStock < request.TicketCount)
-                {
-                    return BadRequest($"Nincs elegendő jegy! Készlet: {currentStock}, Kért: {request.TicketCount}");
-                }
-
-                // Optimista cache frissítés
-                var newStock = currentStock - request.TicketCount;
-                await _cache.SetStringAsync(cacheKey, newStock.ToString());
-                // Ha valamiért nincs a tokenben név, fallback a requestre (opcionális)
-                // Éles rendszerben itt Unauthorized-ot dobnánk.
-                userEmail = request.CustomerEmail; 
+                return BadRequest("A készletinformáció átmenetileg nem elérhető (Catalog is áll és Cache is üres).");
             }
 
-            // --- 4. MENTÉS (ENTITY LÉTREHOZÁSA) ---
-            // Itt hozzuk létre a végleges adatbázis objektumot
+            if (currentStock < request.TicketCount)
+            {
+                return BadRequest($"Nincs elegendő jegy! Készlet: {currentStock}, Kért: {request.TicketCount}");
+            }
+
+            // --- 5. LÉPÉS: MENTÉS + ÜZENETKÜLDÉS (Tranzakcióban!) ---
+            // A MassTransit Outbox miatt a Publish és a SaveChanges egy tranzakció lesz!
+            
             var booking = new Booking
             {
-                Id = Guid.NewGuid(),              // Mi generáljuk
-                BookingDate = DateTime.UtcNow,    // Mi generáljuk
+                Id = Guid.NewGuid(),
+                BookingDate = DateTime.UtcNow,
                 EventId = request.EventId,
-                EventName = request.EventName,
-                CustomerEmail = userEmail, // Tokenből származó email
+                EventName = eventName, // Ezt most vagy a DTO-ból vagy requestből vesszük
+                CustomerEmail = userEmail,
                 TicketCount = request.TicketCount,
-                
             };
-            
 
             _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
 
-            // --- 5. ÜZENET KÜLDÉSE ---
+            // Ez az üzenet először a DB-be kerül, és csak sikeres commit után megy a RabbitMQ-ra
             await _publishEndpoint.Publish(new TicketPurchasedEvent
             {
                 BookingId = booking.Id,
@@ -132,7 +107,15 @@ namespace BookingService.Controllers
                 TicketCount = booking.TicketCount
             });
 
-            return Ok(new { Message = "Sikeres foglalás!", BookingId = booking.Id, User = booking.CustomerEmail });
+          await _context.SaveChangesAsync();
+
+            // --- 6. LÉPÉS: OPTIMISTA CACHE FRISSÍTÉS ---
+            // Csökkentjük a készletet a cache-ben, hogy a következő user már a kevesebbet lássa
+            var newStock = currentStock.Value - request.TicketCount;
+            await _cache.SetStringAsync(cacheKey, newStock.ToString(), 
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
+
+            return Ok(new { Message = "Sikeres foglalás!", BookingId = booking.Id });
         }
 
         [HttpGet]

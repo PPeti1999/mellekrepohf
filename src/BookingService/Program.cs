@@ -1,5 +1,6 @@
 using BookingService.Data;
 using MassTransit;
+using BookingService.Services; // <--- NE FELEJTSD EL
 using Microsoft.EntityFrameworkCore;
 // ÚJ: Auth importok
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -28,18 +29,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
-// -------------------------
-
+// 1. ADATBÁZIS (PostgreSQL)
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// 2. REDIS (Cache)
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 });
 
+// 3. MASSTRANSIT (RabbitMQ + Outbox)
 builder.Services.AddMassTransit(x =>
 {
+    // --- ÚJ RÉSZ: Transactional Outbox ---
+    // Ez biztosítja, hogy az üzenetküldés és az DB mentés atomi legyen.
+    x.AddEntityFrameworkOutbox<BookingDbContext>(o =>
+    {
+        // Mivel fent UseNpgsql-t használtál, itt is Postgres kell!
+        // Ha SQL Servert használnál, akkor o.UseSqlServer();
+        o.UsePostgres(); 
+        
+        o.UseBusOutbox(); // Az üzeneteket először a DB-be menti, onnan küldi ki
+    });
+    // --------------------------------------
+
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
@@ -48,13 +62,20 @@ builder.Services.AddMassTransit(x =>
             h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
+        
+        cfg.ConfigureEndpoints(context); // Fontos a Consumer-eknek
     });
 });
-// 4. HttpClient + Polly (Hibatűrés)
-// JAVÍTOTT RÉSZ:
-builder.Services.AddHttpClient("catalog") // Adunk neki egy nevet, bár nem kötelező, de segít
-       .AddStandardResilienceHandler();   // Így már meg kell találnia a 8.10.0 verzióval
-
+// 4. HTTP CLIENT + POLLY (JAVÍTVA!)
+// A sima AddHttpClient("catalog") helyett Typed Client-et használunk,
+// így a Controllerbe már az ICatalogClient kerül injektálásra.
+builder.Services.AddHttpClient<ICatalogClient, CatalogClient>(client =>
+{
+    // Ez a Docker Service neve a compose-ban és a belső portja
+    client.BaseAddress = new Uri("http://catalog-service:8080"); 
+})
+.AddStandardResilienceHandler(); // Automatikus Retry policy (Polly)
+// -------------------------------------
 var app = builder.Build();
 // --- Middleware és Migráció ---
 using (var scope = app.Services.CreateScope())
