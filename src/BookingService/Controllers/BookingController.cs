@@ -9,6 +9,7 @@ using System.Security.Claims;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 using BookingService.Services;
+using BookingService.Models;
 
 namespace BookingService.Controllers
 {
@@ -43,43 +44,37 @@ namespace BookingService.Controllers
            // User email kinyerése
             var userEmail = User.FindFirst(ClaimTypes.Name)?.Value ?? request.CustomerEmail;
             string cacheKey = $"event_stock_{request.EventId}";
-            int? currentStock = null;
-            string eventName = "Ismeretlen esemény";
+             CatalogEventDto? eventData = null;
 
             // --- 1. LÉPÉS: REDIS (Gyorsítótár) ---
-            var cachedStockString = await _cache.GetStringAsync(cacheKey);
-            if (!string.IsNullOrEmpty(cachedStockString))
+            var cachedDataString = await _cache.GetStringAsync(cacheKey);
+            if (!string.IsNullOrEmpty(cachedDataString))
             {
-                currentStock = int.Parse(cachedStockString);
-                // Opcionális: Ha a név is cache-elve van, azt is kivehetnéd, de most egyszerűsítünk
+              // Ha van adat, visszadedeszerializáljuk a teljes objektumot
+             eventData = JsonSerializer.Deserialize<CatalogEventDto>(cachedDataString);
             }
-           else
+          // --- 2. HTTP FALLBACK ---
+            if (eventData == null)
             {
-                // --- 2. LÉPÉS: HTTP FALLBACK (Ha nincs Redisben) ---
-                // Itt használjuk az új CatalogClient-et, ami Polly-val védett!
-                var eventDto = await _catalogClient.GetEventAsync(request.EventId);
+                eventData = await _catalogClient.GetEventAsync(request.EventId);
 
-                if (eventDto != null)
+                if (eventData != null)
                 {
-                    currentStock = eventDto.AvailableTickets;
-                    eventName = eventDto.Name;
-
-                    // --- 3. LÉPÉS: CACHE FELTÖLTÉS (Öngyógyítás) ---
-                    // Elmentjük 10 percre, hogy legközelebb gyors legyen
-                    await _cache.SetStringAsync(cacheKey, currentStock.ToString(), 
-                        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
+                    // Ha sikerült lekérni, elmentjük JSON-ként a Redisbe
+                    var jsonOptions = new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) };
+                    await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(eventData), jsonOptions);
                 }
             }
 
-            // --- 4. LÉPÉS: VALIDÁCIÓ ---
-            if (currentStock == null)
+                // --- 3. VALIDÁCIÓ ---
+            if (eventData == null)
             {
-                return BadRequest("A készletinformáció átmenetileg nem elérhető (Catalog is áll és Cache is üres).");
+                return BadRequest("A készletinformáció átmenetileg nem elérhető.");
             }
 
-            if (currentStock < request.TicketCount)
+            if (eventData.AvailableTickets < request.TicketCount)
             {
-                return BadRequest($"Nincs elegendő jegy! Készlet: {currentStock}, Kért: {request.TicketCount}");
+                return BadRequest($"Nincs elegendő jegy! Készlet: {eventData.AvailableTickets}");
             }
 
             // --- 5. LÉPÉS: MENTÉS + ÜZENETKÜLDÉS (Tranzakcióban!) ---
@@ -90,7 +85,7 @@ namespace BookingService.Controllers
                 Id = Guid.NewGuid(),
                 BookingDate = DateTime.UtcNow,
                 EventId = request.EventId,
-                EventName = eventName, // Ezt most vagy a DTO-ból vagy requestből vesszük
+                EventName = eventData.Name, // <--- MOST MÁR MINDIG MEGLESZ A NÉV!
                 CustomerEmail = userEmail,
                 TicketCount = request.TicketCount,
             };
@@ -111,8 +106,8 @@ namespace BookingService.Controllers
 
             // --- 6. LÉPÉS: OPTIMISTA CACHE FRISSÍTÉS ---
             // Csökkentjük a készletet a cache-ben, hogy a következő user már a kevesebbet lássa
-            var newStock = currentStock.Value - request.TicketCount;
-            await _cache.SetStringAsync(cacheKey, newStock.ToString(), 
+            eventData.AvailableTickets -= request.TicketCount;
+            await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(eventData), 
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
 
             return Ok(new { Message = "Sikeres foglalás!", BookingId = booking.Id });
