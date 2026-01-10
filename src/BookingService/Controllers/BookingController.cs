@@ -126,5 +126,5 @@ namespace BookingService.Controllers
          
     
 
-    public record BookingRequest(Guid EventId, string EventName, string CustomerEmail, int TicketCount);
+   public record BookingRequest(Guid EventId, string CustomerEmail, int TicketCount);
 }

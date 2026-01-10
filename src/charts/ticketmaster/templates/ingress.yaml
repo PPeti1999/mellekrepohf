@@ -6,13 +6,27 @@ spec:
   entryPoints:
     - web
   routes:
+    # Publikus (Login) - Nincs middleware
+    - match: PathPrefix(`/api/Auth`)
+      kind: Rule
+      services:
+        - name: auth-service
+          port: 8080
+
+    # Védett (Catalog) - Van middleware
     - match: PathPrefix(`/api/Events`)
       kind: Rule
+      middlewares:
+        - name: jwt-auth # <--- Hivatkozás a fenti Middleware-re
       services:
         - name: catalog-service
           port: 8080
+
+    # Védett (Booking) - Van middleware
     - match: PathPrefix(`/api/Booking`)
       kind: Rule
+      middlewares:
+        - name: jwt-auth # <--- Hivatkozás a fenti Middleware-re
       services:
         - name: booking-service
           port: 8080

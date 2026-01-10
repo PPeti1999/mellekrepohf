@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+# --- 0. GATEWAY ---
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"     # API Gateway port
+      - "8080:8080" # Dashboard port
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - auth-service
   # --- 1. INFRASTRUKTÚRA ---
   ticket-db:
     image: postgres:15-alpine
@@ -55,6 +71,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - JWT__Key=EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026
+    labels:
+      - "traefik.enable=true"
+      # Ez a route a Login-hoz (publikus)
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/Auth`)"
+      - "traefik.http.services.auth-service.loadbalancer.server.port=8080"
+      
+      # --- MIDDLEWARE DEFINÍCIÓ ---
+      # Létrehozunk egy "my-auth" nevű middleware-t, ami erre a service-re hivatkozik
+      - "traefik.http.middlewares.my-auth.forwardauth.address=http://auth-service:8080/api/Auth/validate"
+      - "traefik.http.middlewares.my-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.my-auth.forwardauth.authResponseHeaders=Authorization"
 
 # --- 2. MIKROSZOLGÁLTATÁSOK ---
 
@@ -75,6 +102,12 @@ services:
     depends_on:
       - ticket-db
       - ticket-rabbit
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.catalog.rule=PathPrefix(`/api/Events`)"
+      # ITT KAPCSOLJUK BE AZ AUTH-OT:
+      - "traefik.http.routers.catalog.middlewares=my-auth@docker" 
+      - "traefik.http.services.catalog-service.loadbalancer.server.port=8080"
 
   # Booking Service
   booking-service:
@@ -95,6 +128,15 @@ services:
       - ticket-db
       - ticket-cache
       - ticket-rabbit
+      - catalog-service # Fontos a sorrend miatt
+    labels:
+      - "traefik.enable=true"
+      # Routing szabály: /api/Booking útvonalak
+      - "traefik.http.routers.booking.rule=PathPrefix(`/api/Booking`)"
+      # !!! ITT KAPCSOLJUK BE A VÉDELMET !!!
+      # Ez azt mondja: "Mielőtt beengeded a kérést, futtasd le a my-auth middleware-t"
+      - "traefik.http.routers.booking.middlewares=my-auth@docker" 
+      - "traefik.http.services.booking-service.loadbalancer.server.port=8080"
 
   # Notification Worker
   notification-worker:
