@@ -3,8 +3,16 @@ kind: ConfigMap
 metadata:
   name: ticketmaster-config
 data:
-  # Szolgáltatásnevek (ezek nem titkosak)
-  rabbit-host: "rabbitmq"
+  # FONTOS: Ezek a nevek a feltöltött .yaml fájlokból származnak!
+  
+  # A rabbitmq.yaml-ben: name: my-rabbitmq
+  rabbit-host: "my-rabbitmq"
+  
+  # A postgres.yaml-ben: name: ticketmaster-db
   postgres-host: "ticketmaster-db"
+  
+  # A mongo.yaml-ben: name: ticketmaster-mongo
   mongo-host: "ticketmaster-mongo"
+  
+  # A redis.yaml-ben: name: ticketmaster-redis
   redis-host: "ticketmaster-redis"

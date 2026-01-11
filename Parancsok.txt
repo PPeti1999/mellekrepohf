@@ -1,2 +1,0 @@
-konténerek futtatása ha nem futna :
-docker compose -f docker-compose.dev.yml up -d

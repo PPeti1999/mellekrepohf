@@ -6,27 +6,31 @@ spec:
   entryPoints:
     - web
   routes:
-    # Publikus (Login) - Nincs middleware
+    # 1. LOGIN (Publikus)
+    # Bárki elérheti, hogy tokent szerezzen
     - match: PathPrefix(`/api/Auth`)
       kind: Rule
       services:
         - name: auth-service
           port: 8080
 
-    # Védett (Catalog) - Van middleware
-    - match: PathPrefix(`/api/Events`)
+    # 2. CATALOG LISTÁZÁS & RÉSZLETEK (Publikus - GET)
+    # Nincs Middleware -> Bárki láthatja az eseményeket (Guest/User/Admin)
+    # Ez vonatkozik a /api/Events/{id}-re is a PathPrefix miatt!
+    - match: PathPrefix(`/api/Events`) 
       kind: Rule
       middlewares:
-        - name: jwt-auth # <--- Hivatkozás a fenti Middleware-re
+        - name: jwt-auth
       services:
         - name: catalog-service
           port: 8080
 
-    # Védett (Booking) - Van middleware
+    # 4. BOOKING / VÁSÁRLÁS (Védett)
+    # Van Middleware -> Csak bejelentkezett User/Admin érheti el.
     - match: PathPrefix(`/api/Booking`)
       kind: Rule
       middlewares:
-        - name: jwt-auth # <--- Hivatkozás a fenti Middleware-re
+        - name: jwt-auth
       services:
         - name: booking-service
           port: 8080

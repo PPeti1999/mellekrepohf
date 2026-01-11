@@ -7,5 +7,3 @@ spec:
     # A belső K8s DNS nevet használjuk: auth-service service név + port
     address: http://auth-service:8080/api/Auth/validate
     trustForwardHeader: true
-    authResponseHeaders:
-      - Authorization

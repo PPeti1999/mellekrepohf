@@ -14,7 +14,6 @@ spec:
     spec:
       containers:
         - name: catalog
-          # LABOR TECHNIKA: Összefűzés
           image: "{{ .Values.catalog.image.repository }}:{{ .Values.catalog.image.tag }}"
           imagePullPolicy: {{ .Values.catalog.image.pullPolicy }}
           ports:
@@ -40,8 +39,28 @@ spec:
             # --- Connection String összerakása ---
             - name: ConnectionStrings__DefaultConnection
               value: "Host=$(DB_HOST);Port=5432;Database=ticketmaster;Username=$(DB_USER);Password=$(DB_PASS);"
+            
             - name: JWT__Key
               value: "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026"
+
+            # --- !!! EZT A RÉSZT HAGYTAD KI !!! ---
+            # --- RabbitMQ Config (Hogy megkapja az üzenetet a Booking-tól) ---
+            - name: RabbitMQ__Host
+              valueFrom:
+                configMapKeyRef:
+                  name: ticketmaster-config
+                  key: rabbit-host
+            - name: RabbitMQ__Username
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-user
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: ticketmaster-secret
+                  key: rabbit-pass
+            # --------------------------------------
 ---
 apiVersion: v1
 kind: Service

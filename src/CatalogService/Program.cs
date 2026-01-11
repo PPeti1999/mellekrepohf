@@ -59,21 +59,40 @@ builder.Services.AddAuthentication(x =>
 var app = builder.Build();
 
 // --- 4. AUTOMATIKUS MIGRÁCIÓ (AZ 500-AS HIBA ELLEN) ---
+// --- 4. AUTOMATIKUS MIGRÁCIÓ (JAVÍTOTT: RETRY LOGIKA) ---
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+    var services = scope.ServiceProvider;
     try
     {
-        Console.WriteLine("Applying migrations...");
-        dbContext.Database.Migrate();
-        Console.WriteLine("Migrations applied successfully.");
+        var context = services.GetRequiredService<CatalogDbContext>(); // BookingService esetén: BookingDbContext
+        
+        // Egyszerű Retry logika: 5 próbálkozás, 2 mp várakozással
+        int retries = 5;
+        while (retries > 0)
+        {
+            try
+            {
+                Console.WriteLine("Migráció indítása...");
+                context.Database.Migrate();
+                Console.WriteLine("Migráció sikeres!");
+                break; // Ha sikerült, kilépünk a ciklusból
+            }
+            catch (Exception ex)
+            {
+                retries--;
+                Console.WriteLine($"Hiba a migrációnál (Még {retries} próba): {ex.Message}");
+                if (retries == 0) throw; // Ha elfogyott a próba, eldobjuk a hibát
+                System.Threading.Thread.Sleep(2000); // 2 másodperc várakozás
+            }
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error applying migrations: {ex.Message}");
-        // Nem állítjuk le, hátha csak connection hiba ami később megjavul
+        Console.WriteLine($"Kritikus hiba: Nem sikerült az adatbázis kapcsolat: {ex.Message}");
     }
 }
+// ------------------------------------------------------
 // ------------------------------------------------------
 
 if (app.Environment.IsDevelopment())
