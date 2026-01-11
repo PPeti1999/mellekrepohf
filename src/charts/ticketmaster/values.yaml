@@ -1,3 +1,6 @@
+global:
+  imagePullPolicy: IfNotPresent
+
 # --- INFRASTRUKTÚRA ---
 postgresql:
   image:
@@ -64,3 +67,10 @@ analytics:
   rabbitHost: "my-rabbitmq"  # FONTOS: Ez legyen ugyanaz, mint a rabbitmq.yaml metadata.name értéke!
   rabbitUser: "guest"
   rabbitPass: "guest"
+auth:
+  replicaCount: 1
+  image:
+    repository: ppeti1999/ticketmaster-auth
+    tag: "v1"
+  service:
+    port: 8080

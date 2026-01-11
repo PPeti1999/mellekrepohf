@@ -63,8 +63,10 @@ services:
   # Auth Service
   auth-service:
     build:
-      context: ./AuthService
-      dockerfile: Dockerfile
+      #context: ./AuthService
+      #dockerfile: Dockerfile
+      context: .                        # FONTOS: Gyökér mappa
+      dockerfile: AuthService/Dockerfile # FONTOS: A fájl helye
     container_name: auth-service
     ports:
       - "5005:8080"
@@ -88,8 +90,10 @@ services:
   # Catalog Service
   catalog-service:
     build:
-      context: ./CatalogService       # JAVÍTVA: . helyett ./CatalogService
-      dockerfile: Dockerfile          # JAVÍTVA: CatalogService/Dockerfile helyett Dockerfile
+      #context: .       # JAVÍTVA: . helyett ./CatalogService
+      #dockerfile: Dockerfile          # JAVÍTVA: CatalogService/Dockerfile helyett Dockerfile
+      context: .                          # FONTOS: Gyökér mappa
+      dockerfile: CatalogService/Dockerfile # FONTOS: A fájl helye
     container_name: catalog-service
     ports:
       - "5001:8080"
@@ -113,8 +117,10 @@ services:
   # Booking Service
   booking-service:
     build:
-      context: ./BookingService       # JAVÍTVA
-      dockerfile: Dockerfile          # JAVÍTVA
+      #context: . #./BookingService       # JAVÍTVA
+      #dockerfile: Dockerfile          # JAVÍTVA
+      context: .                          # FONTOS: Gyökér mappa
+      dockerfile: BookingService/Dockerfile # FONTOS: A fájl helye
     container_name: booking-service
     ports:
       - "5002:8080"
@@ -143,8 +149,10 @@ services:
   # Notification Worker
   notification-worker:
     build:
-      context: ./NotificationWorker   # JAVÍTVA
-      dockerfile: Dockerfile          # JAVÍTVA
+      #context: . #./NotificationWorker   # JAVÍTVA
+      #dockerfile: Dockerfile          # JAVÍTVA
+      context: .                              # FONTOS: Gyökér mappa
+      dockerfile: NotificationWorker/Dockerfile # FONTOS: A fájl helye
     container_name: notification-worker
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
