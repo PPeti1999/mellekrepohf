@@ -8,35 +8,49 @@ namespace BookingService.Services
         Task<CatalogEventDto?> GetEventAsync(Guid eventId);
     }
 
-    public class CatalogClient : ICatalogClient
+   public class CatalogClient : ICatalogClient
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<CatalogClient> _logger;
 
-        public CatalogClient(HttpClient httpClient, ILogger<CatalogClient> logger)
+        public CatalogClient(IHttpClientFactory factory, ILogger<CatalogClient> logger)
         {
-            _httpClient = httpClient;
+            _httpClient = factory.CreateClient("catalog");
             _logger = logger;
         }
 
-        public async Task<CatalogEventDto?> GetEventAsync(Guid eventId)
+        public async Task<CatalogEventDto?> GetEventAsync(Guid id)
         {
             try
             {
-                // JAVÍTÁS: Megmondjuk a JSON olvasónak, hogy ne törődjön a kis/nagybetűkkel!
+                // Beállítjuk, hogy ne legyen érzékeny a kis/nagybetűkre (camelCase vs PascalCase)
                 var options = new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true 
+                    PropertyNameCaseInsensitive = true
                 };
 
-                // Átadjuk az options-t a hívásnak
-                var eventData = await _httpClient.GetFromJsonAsync<CatalogEventDto>($"/api/Events/{eventId}", options);
+                // Lekérjük az adatot
+                var response = await _httpClient.GetAsync($"api/Events/{id}");
                 
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError($"[CatalogClient] Hiba a lekéréskor. Status: {response.StatusCode}, URL: {response.RequestMessage?.RequestUri}");
+                    return null;
+                }
+
+                var eventData = await response.Content.ReadFromJsonAsync<CatalogEventDto>(options);
+                
+                if (eventData == null)
+                {
+                    _logger.LogWarning($"[CatalogClient] A válasz JSON üres volt. ID: {id}");
+                }
+
                 return eventData;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Nem sikerült elérni a Catalog Service-t az {EventId} lekérdezésekor.", eventId);
+                // Ez a log megjelenik majd a 'docker logs booking-service' parancsnál
+                _logger.LogError(ex, $"[CatalogClient] KIVÉTEL történt a CatalogService hívásakor! ID: {id}");
                 return null;
             }
         }

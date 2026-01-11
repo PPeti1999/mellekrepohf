@@ -40,6 +40,8 @@ spec:
             # --- Connection String összerakása ---
             - name: ConnectionStrings__DefaultConnection
               value: "Host=$(DB_HOST);Port=5432;Database=ticketmaster;Username=$(DB_USER);Password=$(DB_PASS);"
+            - name: JWT__Key
+              value: "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026"
 ---
 apiVersion: v1
 kind: Service

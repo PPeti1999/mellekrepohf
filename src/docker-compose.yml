@@ -99,6 +99,7 @@ services:
       - RabbitMQ__Host=ticket-rabbit
       - RabbitMQ__Username=guest
       - RabbitMQ__Password=guest
+      - JWT__Key=EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026
     depends_on:
       - ticket-db
       - ticket-rabbit
@@ -124,6 +125,7 @@ services:
       - RabbitMQ__Host=ticket-rabbit
       - RabbitMQ__Username=guest
       - RabbitMQ__Password=guest
+      - JWT__Key=EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026
     depends_on:
       - ticket-db
       - ticket-cache

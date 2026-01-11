@@ -1,8 +1,10 @@
 using CatalogService.Data;
-using CatalogService.Entities;
+using Event = CatalogService.Entities.Event;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization; // <--- EZT NE FELEJTSD EL!
+using Microsoft.AspNetCore.Authorization;
+using MassTransit;
+using Contracts; // <--- EZT NE FELEJTSD EL!
 
 namespace CatalogService.Controllers
 {
@@ -10,11 +12,14 @@ namespace CatalogService.Controllers
     [Route("api/[controller]")]
     public class EventsController : ControllerBase
     {
-        private readonly CatalogDbContext _context;
+       private readonly CatalogDbContext _context;
+        private readonly IPublishEndpoint _publishEndpoint; // <--- ÚJ: Injectáljuk
 
-        public EventsController(CatalogDbContext context)
+        // Konstruktor bővítése
+        public EventsController(CatalogDbContext context, IPublishEndpoint publishEndpoint)
         {
             _context = context;
+            _publishEndpoint = publishEndpoint;
         }
 
         // GET: api/events
@@ -46,49 +51,48 @@ namespace CatalogService.Controllers
         }
 
         // --- Meglévő esemény módosítása (PUT) ---
+        // PUT: api/Events/5
         [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEvent(Guid id, Event updatedEvent)
         {
             if (id != updatedEvent.Id)
             {
-                return BadRequest("Az URL-ben lévő ID nem egyezik a küldött objektum ID-jával.");
+                return BadRequest("Az ID nem egyezik az URL-ben és a Body-ban.");
             }
 
-            // Mivel a FindAsync trackeli az entitást, és mi nem akarunk teljes update-et a kliens minden mezőjéből (vagy pont azt akarunk),
-            // a legtisztább, ha lekérjük a meglévőt és frissítjük a mezőit.
+            // 1. Adatbázis frissítése
             var existingEvent = await _context.Events.FindAsync(id);
-
             if (existingEvent == null)
             {
                 return NotFound();
             }
 
-            // Adatok frissítése
+            // Adatok felülírása
             existingEvent.Name = updatedEvent.Name;
             existingEvent.Description = updatedEvent.Description;
-            existingEvent.Location = updatedEvent.Location;
-            existingEvent.AvailableTickets = updatedEvent.AvailableTickets;
             existingEvent.Date = updatedEvent.Date;
+            existingEvent.Location = updatedEvent.Location;
             existingEvent.Price = updatedEvent.Price;
+            existingEvent.AvailableTickets = updatedEvent.AvailableTickets; // Ez a kritikus adat!
 
             try
             {
                 await _context.SaveChangesAsync();
+
+                // --- 2. ÜZENET KÜLDÉSE (A PROFI RÉSZ) ---
+                // Ez szól a BookingService-nek, hogy törölje a cache-t
+                await _publishEndpoint.Publish(new EventUpdated { EventId = id });
+                
+                Console.WriteLine($"[Catalog] EventUpdated üzenet elküldve. ID: {id}");
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EventExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!_context.Events.Any(e => e.Id == id)) return NotFound();
+                else throw;
             }
 
-            return NoContent();
+            return NoContent(); // Vagy Ok()
         }
          // Segédfüggvény az UpdateEvent-hez
         private bool EventExists(Guid id)

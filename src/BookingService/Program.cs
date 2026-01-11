@@ -1,11 +1,11 @@
 using BookingService.Data;
+using BookingService.Services;
 using MassTransit;
-using BookingService.Services; // <--- NE FELEJTSD EL
 using Microsoft.EntityFrameworkCore;
-// ÚJ: Auth importok
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using BookingService.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,45 +15,58 @@ builder.Services.AddSwaggerGen();
 
 // --- AUTH KONFIGURÁCIÓ ---
 var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "TicketMasterAuth",
-            ValidAudience = "TicketMasterServices",
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
-// 1. ADATBÁZIS (PostgreSQL)
-builder.Services.AddDbContext<BookingDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var key = Encoding.ASCII.GetBytes(jwtKey);
 
-// 2. REDIS (Cache)
-builder.Services.AddStackExchangeRedisCache(options =>
+builder.Services.AddAuthentication(x =>
 {
-    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(x =>
+{
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false
+    };
 });
 
-// 3. MASSTRANSIT (RabbitMQ + Outbox)
+// 1. DB és Redis
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<BookingDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "ticket-cache:6379";
+});
+
+// 2. HTTP Client (VISSZAJAVÍTVA "catalog" NÉVRE!)
+// Ez azért kell így, mert a CatalogClient.cs-ben a factory.CreateClient("catalog") hívás szerepel.
+builder.Services.AddHttpClient("catalog", client =>
+{
+    // A Docker service neve a host
+    client.BaseAddress = new Uri("http://catalog-service:8080/"); 
+})
+.AddStandardResilienceHandler(); 
+
+builder.Services.AddScoped<ICatalogClient, CatalogClient>();
+
+// 3. MassTransit
 builder.Services.AddMassTransit(x =>
 {
-    // --- ÚJ RÉSZ: Transactional Outbox ---
-    // Ez biztosítja, hogy az üzenetküldés és az DB mentés atomi legyen.
     x.AddEntityFrameworkOutbox<BookingDbContext>(o =>
     {
-        // Mivel fent UseNpgsql-t használtál, itt is Postgres kell!
-        // Ha SQL Servert használnál, akkor o.UseSqlServer();
-        o.UsePostgres(); 
-        
-        o.UseBusOutbox(); // Az üzeneteket először a DB-be menti, onnan küldi ki
+        o.UsePostgres();
+        o.UseBusOutbox();
     });
-    // --------------------------------------
-
+    // --- ÚJ CONSUMER REGISZTRÁLÁSA ---
+    x.AddConsumer<EventUpdatedConsumer>(); 
+    // ---------------------------------
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
@@ -62,26 +75,26 @@ builder.Services.AddMassTransit(x =>
             h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
-        
-        cfg.ConfigureEndpoints(context); // Fontos a Consumer-eknek
+        cfg.ConfigureEndpoints(context);
     });
 });
-// 4. HTTP CLIENT + POLLY (JAVÍTVA!)
-// A sima AddHttpClient("catalog") helyett Typed Client-et használunk,
-// így a Controllerbe már az ICatalogClient kerül injektálásra.
-builder.Services.AddHttpClient<ICatalogClient, CatalogClient>(client =>
-{
-    // Ez a Docker Service neve a compose-ban és a belső portja
-    client.BaseAddress = new Uri("http://catalog-service:8080"); 
-})
-.AddStandardResilienceHandler(); // Automatikus Retry policy (Polly)
-// -------------------------------------
+
 var app = builder.Build();
-// --- Middleware és Migráció ---
+
+// --- 5. AUTOMATIKUS MIGRÁCIÓ ---
 using (var scope = app.Services.CreateScope())
 {
-      var db = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
-    try { db.Database.Migrate(); } catch { }
+    var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+    try
+    {
+        Console.WriteLine("Applying migrations...");
+        dbContext.Database.Migrate();
+        Console.WriteLine("Migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error applying migrations: {ex.Message}");
+    }
 }
 
 if (app.Environment.IsDevelopment())
@@ -90,7 +103,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// SORREND FONTOS!
 app.UseAuthentication();
 app.UseAuthorization();
 

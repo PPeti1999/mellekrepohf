@@ -1,42 +1,22 @@
-using CatalogService.Consumers;
 using CatalogService.Data;
-using MassTransit;
+using CatalogService.Consumers; // <--- FONTOS: Ha MassTransit is kell
 using Microsoft.EntityFrameworkCore;
-// Fontos importok az auth-hoz
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// --- AUTH KONFIGURÁCIÓ KEZDETE ---
-var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = "TicketMasterAuth",
-            ValidAudience = "TicketMasterServices",
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
-// --- AUTH KONFIGURÁCIÓ VÉGE ---
-
+// 1. DB Context
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<CatalogDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
+// 2. MassTransit (RabbitMQ) - Ha van
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<TicketPurchasedEventConsumer>();
+    x.AddConsumer<TicketPurchasedEventConsumer>(); // Ha van consumered
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
@@ -45,27 +25,56 @@ builder.Services.AddMassTransit(x =>
             h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
             h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
         });
-        cfg.ReceiveEndpoint("catalog-ticket-updates", e =>
-        {
-            e.ConfigureConsumer<TicketPurchasedEventConsumer>(context);
-        });
+        cfg.ConfigureEndpoints(context);
     });
 });
 
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// --- 3. JWT KONFIGURÁCIÓ (EZ HIÁNYZOTT!) ---
+var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
+var key = Encoding.ASCII.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(x =>
+{
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,   // Egyszerűsítés miatt kikapcsolva
+        ValidateAudience = false  // Egyszerűsítés miatt kikapcsolva
+    };
+});
+// ---------------------------------------------
+
 var app = builder.Build();
 
+// --- 4. AUTOMATIKUS MIGRÁCIÓ (AZ 500-AS HIBA ELLEN) ---
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    try 
+    var dbContext = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+    try
     {
-        db.Database.Migrate();
+        Console.WriteLine("Applying migrations...");
+        dbContext.Database.Migrate();
+        Console.WriteLine("Migrations applied successfully.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"HIBA a migráció során: {ex.Message}");
+        Console.WriteLine($"Error applying migrations: {ex.Message}");
+        // Nem állítjuk le, hátha csak connection hiba ami később megjavul
     }
 }
+// ------------------------------------------------------
 
 if (app.Environment.IsDevelopment())
 {
@@ -73,8 +82,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// FONTOS: A sorrend számít!
-app.UseAuthentication(); 
+app.UseAuthentication(); // <--- FONTOS: Ez is kell!
 app.UseAuthorization();
 
 app.MapControllers();
