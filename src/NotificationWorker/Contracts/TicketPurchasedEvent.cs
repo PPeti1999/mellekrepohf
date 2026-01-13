@@ -4,7 +4,6 @@ namespace Contracts
     {
         public Guid BookingId { get; init; }
         
-        // EZT A SORT ADD HOZZÁ:
         public Guid EventId { get; init; } 
         
         public string CustomerEmail { get; init; } = string.Empty;

@@ -6,7 +6,7 @@ spec:
   entryPoints:
     - web
   routes:
-    # 1. LOGIN (Publikus)
+    #  LOGIN (Publikus)
     # Bárki elérheti, hogy tokent szerezzen
     - match: PathPrefix(`/api/Auth`)
       kind: Rule
@@ -14,9 +14,7 @@ spec:
         - name: auth-service
           port: 8080
 
-    # 2. CATALOG LISTÁZÁS & RÉSZLETEK (Publikus - GET)
-    # Nincs Middleware -> Bárki láthatja az eseményeket (Guest/User/Admin)
-    # Ez vonatkozik a /api/Events/{id}-re is a PathPrefix miatt!
+    # CATALOG LISTÁZÁS
     - match: PathPrefix(`/api/Events`) 
       kind: Rule
       middlewares:
@@ -25,8 +23,7 @@ spec:
         - name: catalog-service
           port: 8080
 
-    # 4. BOOKING / VÁSÁRLÁS (Védett)
-    # Van Middleware -> Csak bejelentkezett User/Admin érheti el.
+    #  BOOKING
     - match: PathPrefix(`/api/Booking`)
       kind: Rule
       middlewares:

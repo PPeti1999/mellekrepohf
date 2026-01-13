@@ -43,7 +43,7 @@ spec:
             - name: JWT__Key
               value: "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026"
 
-            # --- !!! EZT A RÉSZT HAGYTAD KI !!! ---
+          
             # --- RabbitMQ Config (Hogy megkapja az üzenetet a Booking-tól) ---
             - name: RabbitMQ__Host
               valueFrom:

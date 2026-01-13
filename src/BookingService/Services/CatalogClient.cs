@@ -23,13 +23,13 @@ namespace BookingService.Services
         {
             try
             {
-                // Beállítjuk, hogy ne legyen érzékeny a kis/nagybetűkre (camelCase vs PascalCase)
+                // kis nagy betük beállítása
                 var options = new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 };
 
-                // Lekérjük az adatot
+                // adatkérés
                 var response = await _httpClient.GetAsync($"api/Events/{id}");
                 
                 if (!response.IsSuccessStatusCode)
@@ -49,7 +49,7 @@ namespace BookingService.Services
             }
             catch (Exception ex)
             {
-                // Ez a log megjelenik majd a 'docker logs booking-service' parancsnál
+                // log docker logs booking-service
                 _logger.LogError(ex, $"[CatalogClient] KIVÉTEL történt a CatalogService hívásakor! ID: {id}");
                 return null;
             }

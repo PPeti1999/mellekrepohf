@@ -1,6 +1,6 @@
 using BookingService.Entities;
 using Microsoft.EntityFrameworkCore;
-using MassTransit; // <--- FONTOS: Ez kell a konfigurációs metódusokhoz!
+using MassTransit; 
 
 namespace BookingService.Data
 {
@@ -14,7 +14,7 @@ namespace BookingService.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Ez a három sor hozza létre a MassTransit Outbox tábláit
+            //  létre hozza a MassTransit Outbox tábláit
             modelBuilder.AddInboxStateEntity();
             modelBuilder.AddOutboxMessageEntity();
             modelBuilder.AddOutboxStateEntity();

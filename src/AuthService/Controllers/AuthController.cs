@@ -69,16 +69,10 @@ using Microsoft.AspNetCore.Mvc;
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
-            [Authorize] // <--- FONTOS: Ez végzi a token validálást!
+            [Authorize] 
             [HttpGet("validate")]
             public IActionResult Validate()
             {
-                // Ha ide eljut a kérés, az azt jelenti, hogy az [Authorize] átengedte,
-                // tehát a token érvényes.
-                
-                // Opcionális: Visszaadhatsz extra Header-öket a Gateway-nek
-                // pl. Response.Headers.Add("X-User-Role", User.FindFirst(ClaimTypes.Role)?.Value);
-                
                 return Ok();
             }
         }

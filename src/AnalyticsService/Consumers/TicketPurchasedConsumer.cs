@@ -12,7 +12,7 @@ namespace AnalyticsService.Consumers
 
         public TicketPurchasedConsumer(IMongoDatabase database, ILogger<TicketPurchasedConsumer> logger)
         {
-            // A "Sales" kollekcióba fogunk írni
+            // A "Sales" kollekcióba írás
             _collection = database.GetCollection<SalesRecord>("Sales");
             _logger = logger;
         }

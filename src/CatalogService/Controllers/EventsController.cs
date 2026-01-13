@@ -13,23 +13,20 @@ namespace CatalogService.Controllers
     public class EventsController : ControllerBase
     {
        private readonly CatalogDbContext _context;
-        private readonly IPublishEndpoint _publishEndpoint; // <--- ÚJ: Injectáljuk
-
-        // Konstruktor bővítése
+        private readonly IPublishEndpoint _publishEndpoint; 
         public EventsController(CatalogDbContext context, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _publishEndpoint = publishEndpoint;
         }
 
-        // GET: api/events
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Event>>> GetEvents()
         {
             return await _context.Events.ToListAsync();
         }
 
-        // GET: api/events/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(Guid id)
         {
@@ -38,7 +35,7 @@ namespace CatalogService.Controllers
             return evt;
         }
 
-        // POST: api/events
+
         [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<ActionResult<Event>> CreateEvent(Event evt)
@@ -50,8 +47,6 @@ namespace CatalogService.Controllers
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
 
-        // --- Meglévő esemény módosítása (PUT) ---
-        // PUT: api/Events/5
         [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateEvent(Guid id, Event updatedEvent)
@@ -61,27 +56,26 @@ namespace CatalogService.Controllers
                 return BadRequest("Az ID nem egyezik az URL-ben és a Body-ban.");
             }
 
-            // 1. Adatbázis frissítése
+            // db friss
             var existingEvent = await _context.Events.FindAsync(id);
             if (existingEvent == null)
             {
                 return NotFound();
             }
 
-            // Adatok felülírása
+          
             existingEvent.Name = updatedEvent.Name;
             existingEvent.Description = updatedEvent.Description;
             existingEvent.Date = updatedEvent.Date;
             existingEvent.Location = updatedEvent.Location;
             existingEvent.Price = updatedEvent.Price;
-            existingEvent.AvailableTickets = updatedEvent.AvailableTickets; // Ez a kritikus adat!
+            existingEvent.AvailableTickets = updatedEvent.AvailableTickets;
 
             try
             {
                 await _context.SaveChangesAsync();
 
-                // --- 2. ÜZENET KÜLDÉSE (A PROFI RÉSZ) ---
-                // Ez szól a BookingService-nek, hogy törölje a cache-t
+                //  szól  BookingServicenek, hogy törölje a cache
                 await _publishEndpoint.Publish(new EventUpdated { EventId = id });
                 
                 Console.WriteLine($"[Catalog] EventUpdated üzenet elküldve. ID: {id}");

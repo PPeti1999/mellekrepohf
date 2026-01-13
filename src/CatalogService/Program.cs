@@ -1,5 +1,5 @@
 using CatalogService.Data;
-using CatalogService.Consumers; // <--- FONTOS: Ha MassTransit is kell
+using CatalogService.Consumers; 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -8,15 +8,15 @@ using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. DB Context
+// db
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 2. MassTransit (RabbitMQ) - Ha van
+// 2. MassTransit rabbitmq
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<TicketPurchasedEventConsumer>(); // Ha van consumered
+    x.AddConsumer<TicketPurchasedEventConsumer>();
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
@@ -33,7 +33,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// --- 3. JWT KONFIGURÁCIÓ (EZ HIÁNYZOTT!) ---
+// jwt konf
 var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -50,24 +50,21 @@ builder.Services.AddAuthentication(x =>
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,   // Egyszerűsítés miatt kikapcsolva
-        ValidateAudience = false  // Egyszerűsítés miatt kikapcsolva
+        ValidateIssuer = false,   
+        ValidateAudience = false  
     };
 });
 // ---------------------------------------------
 
 var app = builder.Build();
 
-// --- 4. AUTOMATIKUS MIGRÁCIÓ (AZ 500-AS HIBA ELLEN) ---
-// --- 4. AUTOMATIKUS MIGRÁCIÓ (JAVÍTOTT: RETRY LOGIKA) ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        var context = services.GetRequiredService<CatalogDbContext>(); // BookingService esetén: BookingDbContext
-        
-        // Egyszerű Retry logika: 5 próbálkozás, 2 mp várakozással
+        var context = services.GetRequiredService<CatalogDbContext>(); // db
+
         int retries = 5;
         while (retries > 0)
         {
@@ -76,14 +73,14 @@ using (var scope = app.Services.CreateScope())
                 Console.WriteLine("Migráció indítása...");
                 context.Database.Migrate();
                 Console.WriteLine("Migráció sikeres!");
-                break; // Ha sikerült, kilépünk a ciklusból
+                break; 
             }
             catch (Exception ex)
             {
                 retries--;
                 Console.WriteLine($"Hiba a migrációnál (Még {retries} próba): {ex.Message}");
-                if (retries == 0) throw; // Ha elfogyott a próba, eldobjuk a hibát
-                System.Threading.Thread.Sleep(2000); // 2 másodperc várakozás
+                if (retries == 0) throw; 
+                System.Threading.Thread.Sleep(2000); 
             }
         }
     }
@@ -92,8 +89,7 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"Kritikus hiba: Nem sikerült az adatbázis kapcsolat: {ex.Message}");
     }
 }
-// ------------------------------------------------------
-// ------------------------------------------------------
+
 
 if (app.Environment.IsDevelopment())
 {
@@ -101,7 +97,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseAuthentication(); // <--- FONTOS: Ez is kell!
+app.UseAuthentication(); 
 app.UseAuthorization();
 
 app.MapControllers();

@@ -6,8 +6,6 @@ namespace BookingService.Entities
     {
         public Guid Id { get; set; }
         public Guid EventId { get; set; }
-        
-        // Ez a mező hiányzott, ezért volt a hiba:
         public string EventName { get; set; } = string.Empty;
 
         public string CustomerEmail { get; set; } = string.Empty;

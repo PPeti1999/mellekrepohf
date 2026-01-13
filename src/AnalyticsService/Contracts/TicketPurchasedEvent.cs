@@ -1,6 +1,6 @@
 namespace Contracts
 {
-    // FONTOS: A névtérnek (Contracts) és a mezőknek egyeznie kell a BookingService-ével!
+    // névtérnek (Contracts) és a mezőknek egyeznie kell a BookingService-ével!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!4
     public record TicketPurchasedEvent
     {
         public Guid BookingId { get; init; }

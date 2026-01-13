@@ -141,7 +141,6 @@ services:
       - "traefik.enable=true"
       # Routing szabály: /api/Booking útvonalak
       - "traefik.http.routers.booking.rule=PathPrefix(`/api/Booking`)"
-      # !!! ITT KAPCSOLJUK BE A VÉDELMET !!!
       # Ez azt mondja: "Mielőtt beengeded a kérést, futtasd le a my-auth middleware-t"
       - "traefik.http.routers.booking.middlewares=my-auth@docker" 
       - "traefik.http.services.booking-service.loadbalancer.server.port=8080"

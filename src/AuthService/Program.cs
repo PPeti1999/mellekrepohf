@@ -9,9 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ---------------------------------------------------------
-// 1. JWT KONFIGURÁCIÓ (Ezt szúrd be a builder.Build() elé)
-// ---------------------------------------------------------
+//jwt konf
 var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -32,7 +30,6 @@ builder.Services.AddAuthentication(x =>
         ValidateAudience = false
     };
 });
-// ---------------------------------------------------------
 
 var app = builder.Build();
 
@@ -43,10 +40,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ---------------------------------------------------------
-// 2. MIDDLEWARE BEKAPCSOLÁSA (Ezt az Authorization elé)
-// ---------------------------------------------------------
-app.UseAuthentication(); // <--- FONTOS: Ez hiányzott!
+//  MIDDLEWARE BEKAPCSOLÁSA 
+app.UseAuthentication(); 
 app.UseAuthorization();
 
 app.MapControllers();

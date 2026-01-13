@@ -19,7 +19,7 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            # --- 1. Postgres (Ugyanaz a trükk) ---
+            # --- 1. Postgres 
             - name: DB_HOST
               valueFrom:
                 configMapKeyRef:
@@ -64,7 +64,7 @@ spec:
                   name: ticketmaster-secret
                   key: rabbit-pass
            
-            # ... (a többi env változó után)
+     
             - name: JWT__Key
               value: "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026"
 ---

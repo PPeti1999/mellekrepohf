@@ -13,7 +13,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// --- AUTH KONFIGURÁCIÓ ---
+// auth konf
 var jwtKey = builder.Configuration["JWT:Key"] ?? "EzEgyNagyonHosszuEsTitkosKulcsAmiLegalabb32Karakter2026";
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -35,7 +35,7 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-// 1. DB és Redis
+//  DB  Redis
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<BookingDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -45,18 +45,16 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration.GetConnectionString("Redis") ?? "ticket-cache:6379";
 });
 
-// 2. HTTP Client (VISSZAJAVÍTVA "catalog" NÉVRE!)
-// Ez azért kell így, mert a CatalogClient.cs-ben a factory.CreateClient("catalog") hívás szerepel.
+// HTTP Client catalogra
 builder.Services.AddHttpClient("catalog", client =>
 {
-    // A Docker service neve a host
     client.BaseAddress = new Uri("http://catalog-service:8080/"); 
 })
 .AddStandardResilienceHandler(); 
 
 builder.Services.AddScoped<ICatalogClient, CatalogClient>();
 
-// 3. MassTransit
+//  MassTransit
 builder.Services.AddMassTransit(x =>
 {
     x.AddEntityFrameworkOutbox<BookingDbContext>(o =>
@@ -64,9 +62,8 @@ builder.Services.AddMassTransit(x =>
         o.UsePostgres();
         o.UseBusOutbox();
     });
-    // --- ÚJ CONSUMER REGISZTRÁLÁSA ---
+    //consumer
     x.AddConsumer<EventUpdatedConsumer>(); 
-    // ---------------------------------
     x.UsingRabbitMq((context, cfg) =>
     {
         var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? "rabbitmq";
@@ -81,8 +78,7 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
-// --- 5. AUTOMATIKUS MIGRÁCIÓ ---
-// --- 4. AUTOMATIKUS MIGRÁCIÓ (JAVÍTOTT: RETRY LOGIKA) ---
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -99,14 +95,14 @@ using (var scope = app.Services.CreateScope())
                 Console.WriteLine("Migráció indítása...");
                 context.Database.Migrate();
                 Console.WriteLine("Migráció sikeres!");
-                break; // Ha sikerült, kilépünk a ciklusból
+                break; 
             }
             catch (Exception ex)
             {
                 retries--;
                 Console.WriteLine($"Hiba a migrációnál (Még {retries} próba): {ex.Message}");
-                if (retries == 0) throw; // Ha elfogyott a próba, eldobjuk a hibát
-                System.Threading.Thread.Sleep(2000); // 2 másodperc várakozás
+                if (retries == 0) throw; 
+                System.Threading.Thread.Sleep(2000); // 2 mp
             }
         }
     }
@@ -115,7 +111,6 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"Kritikus hiba: Nem sikerült az adatbázis kapcsolat: {ex.Message}");
     }
 }
-// ------------------------------------------------------
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,34 +1,15 @@
-Jogcím,Kód,Pont,Státusz a te esetedben
-Alap pontok,,,
-Minimum elvárások teljesítése,{BASE},24,Megvan. (A rendszer specifikáció szerinti működése AKS-en).
-Technológia & Architektúra,,,
-Kétfajta on-premise adatbázis,{OPDB2},10,Megvan. (PostgreSQL és Redis konténerben fut).
-Saját cache használata (Redis),{CACHE},5,Megvan. (Redis használata a Booking service-ben).
-Aszinkron kommunikáció (RabbitMQ),{ASYNCCOMM},5,Megvan. (RabbitMQ és MassTransit használata).
-Hibatűrést növelő komm. (Polly),{NOERR},5,Megvan. (Polly Retry használata HTTP hívásoknál).
-Orkesztráció & DevOps,,,
-Helm chart használata,{HELM},10,Megvan. (Saját és külső Helm chartok a deployhoz).
-Saját konténer build ACR-ben,{ACRBUILD},7,Megvan. (az acr build használata).
-Letöltés saját ACR-ből,{AZACR},3,Megvan. (AKS letölti a képet az ACR-ből admin userrel).
-Amik KIESNEK (a korábbi tervekhez képest):,,,
-gRPC alapú kommunikáció,{GRPC},0,Kivettük az egyszerűsítés miatt.
-K8S ConfigMap használata,{K8SCMAP},0,"Bár használjuk, nem kértük külön a pontot érte (a Helm része)."
-K8S Secret használata,{K8SSECRET},0,"Bár használjuk, nem kértük külön a pontot érte (a Helm része)."
-Horizontális skálázás (HPA),{HSC},0,"Kivettük, mert demózása nehézkes lenne."
-Minden kisházi teljesítése,{ALLHF},0,"Kiesik, mert csak 4 labor van meg."
-,,,
-Összesen,Sum,69,
-
-
-Specifikáció elem,Melyik Laborban van rá példa?,Pontosítás
-Konténerizáció (Docker),01. Labor,".NET alkalmazások Dockerfile készítése, docker compose használata."
-Kubernetes alapok,02. Labor,"Deployment, Service, ConfigMap, Secret YAML fájlok."
-Helm használata,02. Labor,"Saját Helm chart készítése, külső chartok (Bitnami) használata függőségként."
-Traefik Ingress,02. Labor,"Traefik telepítése Helmmel, IngressRoute szabályok definiálása a routinghoz."
-PostgreSQL (konténerben),01. & 02. Labor,01: docker-compose-ban futtatás. 02: Kubernetesben futtatás Helm charttal (ez a fontos a NHF-hoz).
-Redis (konténerben),01. & 02. Labor,01: docker-compose-ban futtatás. 02: Kubernetesben futtatás Helm charttal.
-.NET kommunikáció (REST),03. Labor,Szinkron HTTP hívások HttpClient segítségével.
-Hibatűrés (Polly),03. Labor,Reziliencia (pl. Retry policy) hozzáadása a HTTP kliensekhez .NET-ben.
-RabbitMQ & MassTransit,03. Labor,"Nagyon részletes példa az aszinkron üzenetküldésre, producer/consumer implementálására MassTransittal."
-Azure ACR (Registry),04. Labor,"ACR létrehozása, image buildelés (az acr build)."
-Azure AKS (Cluster),04. Labor,"AKS klaszter létrehozása, összekötése az ACR-rel, és az alkalmazás deployolása a felhőbe."
+Jogcím,Pontszám,Mire kapod a pontot?,Hol van megvalósítva?
+{BASE},24,"Minimum elvárásokat teljesítő rendszer (mikroszolgáltatások, API, orkesztráció).","Teljes projekt struktúra, mikroszolgáltatások (Catalog, Booking, Auth, stb.)"
+{PLAT2},20,A szolgáltatás két különféle orkesztrációs platformon fut (On-premise Docker Compose és Azure AKS).,src/docker-compose.yml (Lokális) és src/charts/ticketmaster (Azure AKS Helm chart)
+{OPDB2},10,Kétfajta on-premise adatbázis (PostgreSQL és MongoDB).,"src/docker-compose.yml (ticket-db: PostgreSQL, ticket-mongo: MongoDB)"
+{HELM},10,Helm chart használata a Kubernetes deploymenthez.,"src/charts/ticketmaster mappa (Chart.yaml, templates)"
+{APIGW+AUTH},7,Autentikáció kiszervezése API Gateway-be (Traefik ForwardAuth).,src/charts/ticketmaster/templates/auth-middleware.yaml (Traefik forwardAuth -> AuthService)
+{GW},5,Saját telepítésű API gateway (Traefik) útvonalválasztásra.,src/charts/ticketmaster/templates/ingress.yaml és docker-compose.yml
+{ASYNCCOMM},5,Aszinkron kommunikáció (RabbitMQ + MassTransit).,BookingService (Publish) -> NotificationWorker/AnalyticsService (Consume)
+{CACHE},5,Saját Redis cache használata.,src/BookingService/Controllers/BookingController.cs (IDistributedCache)
+{NOERR},5,Hibatűrés (Polly) alkalmazása.,src/BookingService/Program.cs (AddStandardResilienceHandler)
+{K8SCMAP},5,Kubernetes ConfigMap használata.,src/charts/ticketmaster/templates/configmap.yaml
+{K8SSECRET},3,Kubernetes Secret használata.,src/charts/ticketmaster/templates/secret.yaml
+{ACRBUILD},7,Azure Container Registry Build (Parancssori művelet).,GitHub Actions / Azure CLI parancsok (pontozas.txt alapján vállalva)
+{AZACR},3,Letöltés saját ACR-ből (Deployment konfiguráció).,Helm values.yaml image repository beállítás (pontozas.txt alapján vállalva)
+ÖSSZESEN,109,,

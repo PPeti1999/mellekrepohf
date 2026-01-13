@@ -4,18 +4,18 @@ using MongoDB.Driver;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// 1. MongoDB Konfiguráció
+// MongoDB Konfiguráció
 var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDb") ?? "mongodb://ticket-mongo:27017";
 var mongoClient = new MongoClient(mongoConnectionString);
 var mongoDb = mongoClient.GetDatabase("TicketAnalyticsDb");
 
-// Regisztráljuk az adatbázist Singletonként
+// mongo db regi
 builder.Services.AddSingleton(mongoDb);
 
-// 2. MassTransit Konfiguráció
+//MassTransit Konfiguráció
 builder.Services.AddMassTransit(x =>
 {
-    // A TicketPurchasedConsumer-t regisztráljuk (amit a Consumers mappába teszünk)
+    // A TicketPurchasedConsumer regi
     x.AddConsumer<TicketPurchasedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>

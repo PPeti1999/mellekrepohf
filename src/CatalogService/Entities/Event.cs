@@ -7,7 +7,6 @@ namespace CatalogService.Entities
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
         
-        // Ezek hiányoztak a Controllerből:
         public string Description { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public int AvailableTickets { get; set; }

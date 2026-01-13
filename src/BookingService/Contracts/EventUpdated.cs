@@ -1,4 +1,4 @@
-namespace Contracts // <--- NEM BookingService.Contracts, hanem csak Contracts
+namespace Contracts
 {
     public record EventUpdated
     {
